@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<title>Revenue &amp; Stores — My DVD</title>
+<link href="shared.css" rel="stylesheet"/>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<style>
+    .gran-bar {
+      display: flex;
+      gap: 0.4rem;
+      margin-bottom: 1rem;
+    }
+
+    .gran-btn {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--txt3);
+      font-size: 0.82rem;
+      padding: 0.35rem 0.9rem;
+      cursor: pointer;
+      transition: all 0.18s;
+    }
+
+    .gran-btn.active,
+    .gran-btn:hover {
+      background: var(--blue);
+      color: #fff;
+      border-color: var(--blue);
+    }
+
+    .battle-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.1rem 1.2rem;
+      font-size: 0.83rem;
+      color: var(--txt2);
+    }
+
+    .battle-card .label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      display: block;
+      margin-bottom: 0.25rem;
+    }
+
+    .battle-card.teal {
+      border-left: 3px solid var(--teal);
+    }
+
+    .battle-card.teal .label {
+      color: var(--teal);
+    }
+
+    .battle-card.rose {
+      border-left: 3px solid var(--rose);
+    }
+
+    .battle-card.rose .label {
+      color: var(--rose);
+    }
+
+    .sim-box {
+      background: #161b27;
+      border: 1px solid #263041;
+      border-radius: 12px;
+      padding: 1.2rem;
+      margin-top: 0.8rem;
+    }
+
+    .sim-box label {
+      font-size: 0.78rem;
+      color: var(--txt4);
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .sim-result {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.9rem 1.1rem;
+      margin-top: 0.8rem;
+      font-size: 0.83rem;
+      color: var(--txt2);
+    }
+
+    input[type=range] {
+      width: 100%;
+      margin: 0.3rem 0;
+      accent-color: var(--blue);
+    }
+  </style>
+</head>
+<body>
+<div class="layout">
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar">
+<div class="sb-brand">
+<div class="title"><i class="bi bi-film"></i> My DVD</div>
+<div class="sub">DVD Store Intelligence Dashboard</div>
+</div>
+<hr class="sb-hr"/>
+<nav class="sb-nav">
+<a href="overview.html"><i class="bi bi-house"></i><span>Overview</span></a>
+<a class="active" href="revenue_stores.html"><i class="bi bi-graph-up"></i><span>Revenue &amp; Stores</span></a>
+<a href="film_pricing.html"><i class="bi bi-film"></i><span>Film &amp; Pricing</span></a>
+<a href="leaks_action.html"><i class="bi bi-exclamation-triangle"></i><span>Leaks &amp; Action</span></a>
+<a href="transformer_forecast_widget.html"><i class="bi bi-cpu"></i><span>Transformer Forecast</span></a>
+</nav>
+<hr class="sb-hr"/>
+<div class="sb-filter">
+<label>Store</label>
+<div class="cb-group">
+<label class="cb-label"><input checked="" id="cb1" type="checkbox" value="1"/> Store 1</label>
+<label class="cb-label"><input checked="" id="cb2" type="checkbox" value="2"/> Store 2</label>
+</div>
+<label>From</label>
+<input id="dateFrom" type="date"/>
+<label>To</label>
+<input id="dateTo" type="date"/>
+</div>
+<div class="sb-caption">Source: dvdrental_ori · PostgreSQL</div>
+</aside>
+<!-- ── MAIN ── -->
+<main class="main">
+<div class="sec-head"><i class="bi bi-graph-up"></i> Revenue Flow Over Time</div>
+<!-- Granularity -->
+<div class="gran-bar">
+<button class="gran-btn" id="g-daily" onclick="setGran('daily',this)">Daily</button>
+<button class="gran-btn active" id="g-weekly" onclick="setGran('weekly',this)">Weekly</button>
+<button class="gran-btn" id="g-monthly" onclick="setGran('monthly',this)">Monthly</button>
+</div>
+<div class="chart-wrap">
+<div id="chart-hist" style="height:380px">
+<div class="loading">Loading…</div>
+</div>
+</div>
+<!-- Predictive Analytics -->
+<div class="divider"></div>
+<div class="sec-head"><i class="bi bi-magic"></i> Predictive Analytics</div>
+<div class="info-box">📊 <b>Historical data is shown above.</b> Click the button below to run the revenue forecast
+        and unlock the prediction chart, insight summary, and simulator.</div>
+<button class="btn" id="pred-btn" onclick="togglePrediction()" style="margin:0.8rem 0">🔮 Run Revenue
+        Prediction</button>
+<div id="prediction-section" style="display:none">
+<div class="sec-head" style="margin-top:0.4rem"><i class="bi bi-bar-chart-line"></i> Revenue Forecast Chart
+        </div>
+<div class="chart-wrap">
+<div id="chart-forecast" style="height:380px"></div>
+</div>
+<div class="chart-summary" id="forecast-summary"></div>
+<div class="info-box" id="forecast-signal"></div>
+<!-- Simulator -->
+<div class="divider"></div>
+<div class="sec-head"><i class="bi bi-sliders"></i> Simulation: Late Return Reduction Impact</div>
+<div class="sim-box">
+<label>Late Return Reduction Impact (%): <b id="sim-val">10</b>%</label>
+<input id="sim-slider" max="50" min="0" oninput="updateSim(this.value)" type="range" value="10"/>
+<div class="sim-result" id="sim-result"></div>
+</div>
+<button class="btn secondary" onclick="togglePrediction()" style="margin-top:0.8rem">✖ Hide Prediction</button>
+</div>
+<!-- Store Battle -->
+<div class="divider"></div>
+<div class="sec-head"><i class="bi bi-trophy"></i> Store Battle</div>
+<div class="col2" id="store-battle">Loading…</div>
+<!-- Staff -->
+<!-- <div class="divider"></div>
+      <div class="sec-head"><i class="bi bi-person-badge"></i> Staff Performance</div>
+      <div class="chart-wrap">
+        <div id="chart-staff" style="height:220px">
+          <div class="loading">Loading…</div>
+        </div>
+      </div>
+      <div class="chart-summary"><span class="label">What this shows</span>Revenue and transaction count generated per
+        staff member across both stores.</div> -->
+</main>
+</div>
+<script>
+    const API = 'http://127.0.0.1:5000';
+    const STORE_COLOR = { 1: '#5b7ec5', 2: '#3a9e8f' };
+    const BASE_LAYOUT = {
+      paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: '#13161f',
+      font: { family: 'Inter,sans-serif', color: '#8b91a8', size: 13 },
+      margin: { l: 16, r: 16, t: 46, b: 16 },
+      legend: { bgcolor: 'rgba(19,22,31,0.9)', bordercolor: '#1e2535', borderwidth: 1, font: { size: 12 }, orientation: 'h', y: -0.22 },
+      xaxis: { gridcolor: '#1e2535', linecolor: '#2a3040', zerolinecolor: '#2a3040', tickfont: { size: 12, color: '#6b7280' } },
+      yaxis: { gridcolor: '#1e2535', linecolor: '#2a3040', zerolinecolor: '#2a3040', tickfont: { size: 12, color: '#6b7280' } },
+    };
+    const CFG = { responsive: true, displayModeBar: false };
+
+    let storeFilter = [1, 2], dateFrom = '', dateTo = '';
+    let gran = 'weekly';
+    let allData = [], allKpis = [], allStaff = [];
+    let showPrediction = false;
+    let forecastVal = 0, lastVal = 0;
+
+    // ── Granularity ──────────────────────────────────────────────────────────────
+    function setGran(g, btn) {
+      gran = g;
+      document.querySelectorAll('.gran-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      loadTimeseries();
+    }
+
+    function togglePrediction() {
+      showPrediction = !showPrediction;
+      document.getElementById('prediction-section').style.display = showPrediction ? 'block' : 'none';
+      document.getElementById('pred-btn').textContent = showPrediction ? '✖ Hide Prediction' : '🔮 Run Revenue Prediction';
+      if (showPrediction) renderForecast();
+    }
+
+    // ── Load ─────────────────────────────────────────────────────────────────────
+    async function loadAll() {
+      const [kpiRes, staffRes] = await Promise.all([
+        fetch(`${API}/api/revenue/kpis`).then(r => r.json()),
+        fetch(`${API}/api/revenue/staff`).then(r => r.json()),
+      ]);
+      allKpis = kpiRes;
+      allStaff = staffRes;
+      await loadTimeseries();
+      renderStoreBattle();
+      renderStaff();
+    }
+
+    async function loadTimeseries() {
+      const stores = storeFilter.join(',');
+      allData = await fetch(`${API}/api/revenue/timeseries?gran=${gran}&stores=${stores}`).then(r => r.json());
+      renderHistorical();
+      if (showPrediction) renderForecast();
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────────
+    const fmt = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+    function filteredData() {
+      return allData.filter(r => {
+        const p = r.period;
+        return storeFilter.includes(+r.store_id) && (!dateFrom || p >= dateFrom) && (!dateTo || p <= dateTo);
+      });
+    }
+
+    function buildPivot(data) {
+      const periods = [...new Set(data.map(r => r.period))].sort();
+      const pivot = {};
+      periods.forEach(p => pivot[p] = { 1: 0, 2: 0, tx1: 0, tx2: 0 });
+      data.forEach(r => {
+        if (pivot[r.period]) {
+          pivot[r.period][r.store_id] = +r.revenue;
+          pivot[r.period][`tx${r.store_id}`] = +r.transactions;
+        }
+      });
+      const totals = periods.map(p => (pivot[p][1] || 0) + (pivot[p][2] || 0));
+      return { periods, pivot, totals };
+    }
+
+    function storeTraces(periods, pivot) {
+      return storeFilter.map(sid => ({
+        x: periods, y: periods.map(p => pivot[p][sid] || 0),
+        name: `Store ${sid}`, type: 'scatter', mode: 'lines+markers',
+        line: { color: STORE_COLOR[sid], width: 2.5 }, marker: { size: 6, color: STORE_COLOR[sid] },
+      }));
+    }
+
+    // ── Historical Chart ─────────────────────────────────────────────────────────
+    function renderHistorical() {
+      const data = filteredData();
+      if (!data.length) { document.getElementById('chart-hist').innerHTML = '<div class="loading">No data for selection.</div>'; return; }
+      const { periods, pivot, totals } = buildPivot(data);
+      const traces = storeTraces(periods, pivot);
+      traces.push({ x: periods, y: totals, name: 'Total', type: 'scatter', mode: 'lines+markers', line: { color: '#c8ccda', width: 1.5, dash: 'dot' }, marker: { size: 4, color: '#c8ccda' } });
+
+      // Compute forecast for later use
+      const last3 = totals.slice(-3);
+      forecastVal = last3.reduce((s, v) => s + v, 0) / last3.length;
+      lastVal = totals[totals.length - 1] || 0;
+
+      Plotly.react('chart-hist', traces, { ...BASE_LAYOUT, height: 380, hovermode: 'x unified' }, CFG);
+    }
+
+    // ── Forecast Chart ───────────────────────────────────────────────────────────
+    function renderForecast() {
+      const data = filteredData();
+      if (!data.length) return;
+      const { periods, pivot, totals } = buildPivot(data);
+      const traces = storeTraces(periods, pivot);
+      traces.push({ x: periods, y: totals, name: 'Total', type: 'scatter', mode: 'lines+markers', line: { color: '#c8ccda', width: 1.5, dash: 'dot' }, marker: { size: 4 } });
+
+      const lastDate = periods[periods.length - 1];
+      const forecastDate = shiftDate(lastDate, gran);
+      traces.push({
+        x: [lastDate, forecastDate], y: [lastVal, forecastVal],
+        name: `Prediction (next ${gran})`, type: 'scatter', mode: 'lines+markers',
+        line: { color: '#f0c040', width: 2.5, dash: 'dash' }, marker: { symbol: 'diamond', size: 10, color: '#f0c040' },
+      });
+      Plotly.react('chart-forecast', traces, { ...BASE_LAYOUT, height: 380, hovermode: 'x unified' }, CFG);
+
+      const pct = lastVal ? ((forecastVal - lastVal) / lastVal * 100) : 0;
+      const sign = pct >= 0 ? '+' : '';
+      const dir = pct >= 0 ? 'increase' : 'decline';
+      document.getElementById('forecast-summary').innerHTML = `<span class="label">What this shows</span>Predicted revenue next ${gran} is <b>${fmt(forecastVal)}</b>, a <b>${sign}${pct.toFixed(1)}%</b> ${dir} from the last period, based on the 3-period moving average.`;
+
+      const sig = document.getElementById('forecast-signal');
+      if (forecastVal < lastVal) {
+        sig.className = 'info-box rose';
+        sig.innerHTML = `⚠️ <b>Revenue is expected to decline.</b> Forecast (${fmt(forecastVal)}) is ${fmt(lastVal - forecastVal)} below last period. Consider reviewing pricing, inventory, or promotions.`;
+      } else {
+        sig.className = 'info-box green';
+        sig.innerHTML = `✅ <b>Revenue is expected to grow.</b> Forecast (${fmt(forecastVal)}) is ${fmt(forecastVal - lastVal)} above last period. Current momentum looks positive.`;
+      }
+      updateSim(document.getElementById('sim-slider').value);
+    }
+
+    function updateSim(val) {
+      document.getElementById('sim-val').textContent = val;
+      const simRev = forecastVal * (1 + val * 0.003);
+      const simGain = simRev - forecastVal;
+      document.getElementById('sim-result').innerHTML = `With a <b>${val}%</b> reduction in late returns, revenue could increase to <b>${fmt(simRev)}</b> — an estimated uplift of <b>${fmt(simGain)}</b> over the base forecast.`;
+    }
+
+    function shiftDate(dateStr, g) {
+      const d = new Date(dateStr);
+      if (g === 'daily') d.setDate(d.getDate() + 1);
+      if (g === 'weekly') d.setDate(d.getDate() + 7);
+      if (g === 'monthly') d.setMonth(d.getMonth() + 1);
+      return d.toISOString().slice(0, 10);
+    }
+
+    // ── Store Battle ──────────────────────────────────────────────────────────────
+    function renderStoreBattle() {
+      const s1 = allKpis.find(r => r.store_id == 1);
+      const s2 = allKpis.find(r => r.store_id == 2);
+      if (!s1 || !s2) { document.getElementById('store-battle').innerHTML = 'No data.'; return; }
+      const winner = +s1.revenue > +s2.revenue ? 'Store 1' : 'Store 2';
+      const loser = winner === 'Store 1' ? 'Store 2' : 'Store 1';
+      const gap = Math.abs(+s1.revenue - +s2.revenue);
+      const pct = (gap / Math.min(+s1.revenue, +s2.revenue) * 100).toFixed(1);
+      document.getElementById('store-battle').innerHTML = `
+    <div class="battle-card teal"><span class="label">Conclusion</span><b>${winner}</b> leads by <b>$${gap.toLocaleString('en-US', { maximumFractionDigits: 0 })} (${pct}%)</b>.</div>
+    <div class="battle-card rose"><span class="label">Action Point</span><b>${loser}</b> needs traffic investigation.</div>
+  `;
+    }
+
+    // ── Staff ─────────────────────────────────────────────────────────────────────
+    function renderStaff() {
+      const names = allStaff.map(r => r.name);
+      const revs = allStaff.map(r => +r.revenue);
+      const clrs = allStaff.map(r => STORE_COLOR[r.store_id] || '#7c86a2');
+      Plotly.react('chart-staff', [{
+        x: revs, y: names, type: 'bar', orientation: 'h',
+        marker: { color: clrs }, text: revs.map(v => '$' + v.toLocaleString('en-US', { maximumFractionDigits: 0 })), textposition: 'outside',
+      }], { ...BASE_LAYOUT, height: 220, showlegend: false, yaxis: { ...BASE_LAYOUT.yaxis, autorange: 'reversed' } }, CFG);
+    }
+
+    // ── Filters ───────────────────────────────────────────────────────────────────
+    document.querySelectorAll('input[type=checkbox]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        storeFilter = [...document.querySelectorAll('input[type=checkbox]:checked')].map(c => +c.value);
+        if (!storeFilter.length) storeFilter = [1, 2];
+        loadTimeseries();
+      });
+    });
+    document.getElementById('dateFrom').addEventListener('change', e => { dateFrom = e.target.value; renderHistorical(); if (showPrediction) renderForecast(); });
+    document.getElementById('dateTo').addEventListener('change', e => { dateTo = e.target.value; renderHistorical(); if (showPrediction) renderForecast(); });
+
+    // ── Boot ──────────────────────────────────────────────────────────────────────
+    (async () => {
+      try {
+        const r = await fetch(`${API}/api/overview/daterange`).then(r => r.json());
+        document.getElementById('dateFrom').value = r.min; dateFrom = r.min;
+        document.getElementById('dateTo').value = r.max; dateTo = r.max;
+      } catch (e) { }
+      await loadAll();
+    })();
+  </script>
+<!-- ── DVD-AI Chatbot Widget ── -->
+<script src="chatbot_widget.js"></script>
+</body>
+</html>

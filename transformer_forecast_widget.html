@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width,initial-scale=1" name="viewport"/>
+  <title>Transformer Forecast — DVD Dashboard</title>
+  <link href="shared.css" rel="stylesheet"/>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <style>
+    .tf-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(91,126,197,0.13);
+      border: 1px solid rgba(91,126,197,0.3);
+      border-radius: 20px;
+      padding: 3px 12px;
+      font-size: 0.72rem;
+      color: #8baad4;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+    }
+    .tf-badge.green { background: rgba(74,150,104,0.13); border-color: rgba(74,150,104,0.3); color: #6abf8a; }
+    .tf-badge.amber { background: rgba(200,154,58,0.13); border-color: rgba(200,154,58,0.3); color: #d4a84b; }
+    .controls-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 1.5rem; }
+    .ctrl-label { font-size: 0.78rem; color: var(--txt2); font-weight: 600; }
+    .ctrl-select { background: var(--card); border: 1px solid var(--border2); border-radius: 8px; color: var(--txt); padding: 6px 12px; font-size: 0.82rem; font-family: 'Inter', sans-serif; cursor: pointer; outline: none; }
+    .ctrl-select:focus { border-color: #5b7ec5; }
+    .store-toggle { display: flex; gap: 6px; }
+    .store-btn { padding: 5px 14px; border-radius: 20px; border: 1px solid var(--border2); background: var(--card); color: var(--txt2); font-size: 0.78rem; cursor: pointer; transition: all 0.18s; font-family: 'Inter', sans-serif; }
+    .store-btn.active { background: #5b7ec5; border-color: #5b7ec5; color: #fff; }
+    .store-btn.s2.active { background: #3a9e8f; border-color: #3a9e8f; }
+    .store-btn.comb.active { background: #7c86a2; border-color: #7c86a2; }
+    .run-btn { margin-left: auto; background: linear-gradient(135deg, #4a6db8, #3a9e8f); border: none; border-radius: 10px; color: #fff; padding: 8px 20px; font-size: 0.84rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; font-family: 'Inter', sans-serif; transition: opacity 0.18s; }
+    .run-btn:hover { opacity: 0.88; }
+    .run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .chart-section { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 1.4rem 1.6rem; margin-bottom: 1.5rem; }
+    .chart-title { font-family: 'Space Grotesk', sans-serif; font-size: 1rem; font-weight: 700; color: var(--txt); margin-bottom: 4px; }
+    .chart-sub { font-size: 0.75rem; color: var(--txt2); margin-bottom: 1rem; }
+    .forecast-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 1rem; }
+    .forecast-table th { text-align: left; padding: 7px 12px; color: var(--txt2); font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--border); }
+    .forecast-table td { padding: 8px 12px; border-bottom: 1px solid rgba(30,37,53,0.5); color: var(--txt); }
+    .forecast-table tr:last-child td { border-bottom: none; }
+    .forecast-table .mean-cell { font-family: 'Space Grotesk', sans-serif; font-size: 0.95rem; font-weight: 700; color: #7ab8f0; }
+    .forecast-table .ci-cell { color: var(--txt2); font-size: 0.78rem; }
+    .model-info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 1rem; }
+    .mi-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+    .mi-label { font-size: 0.68rem; color: var(--txt3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+    .mi-value { font-family: 'Space Grotesk', sans-serif; font-size: 1rem; font-weight: 700; color: var(--txt); }
+    .mi-sub { font-size: 0.72rem; color: var(--txt2); margin-top: 2px; }
+    .arch-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.2rem; font-size: 0.8rem; color: var(--txt2); line-height: 1.8; }
+    .arch-box code { background: rgba(91,126,197,0.12); border-radius: 4px; padding: 1px 6px; font-size: 0.78rem; color: #7ab8e8; font-family: monospace; }
+    .arch-row { display: flex; align-items: flex-start; gap: 10px; padding: 5px 0; border-bottom: 1px solid rgba(30,37,53,0.5); }
+    .arch-row:last-child { border-bottom: none; }
+    .arch-key { min-width: 180px; color: var(--txt3); font-size: 0.75rem; font-weight: 600; }
+    .arch-val { color: var(--txt); font-size: 0.8rem; }
+    .status-bar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 1.5rem; font-size: 0.8rem; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--txt3); flex-shrink: 0; }
+    .status-dot.running { background: #f59e0b; animation: blink 0.8s ease-in-out infinite; }
+    .status-dot.done    { background: #22c55e; }
+    .status-dot.error   { background: #ef4444; }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+    .divider { height: 1px; background: var(--border); margin: 1.5rem 0; }
+    .empty-state { text-align: center; padding: 3rem 1rem; color: var(--txt2); }
+    .empty-state i { font-size: 2.5rem; color: var(--txt3); margin-bottom: 1rem; display: block; }
+    .empty-state p { font-size: 0.88rem; }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="sb-brand">
+      <div class="title" id="title-sidebar"><i class="bi bi-film"></i> DVD Dashboard</div>
+      <div class="sub" id="subtitle-sidebar">DVD Store Intelligence Dashboard</div>
+    </div>
+    <hr class="sb-hr"/>
+    <nav class="sb-nav">
+      <a href="overview.html"><i class="bi bi-house"></i><span>Overview</span></a>
+      <a href="revenue_stores.html"><i class="bi bi-graph-up"></i><span>Revenue &amp; Stores</span></a>
+      <a href="film_pricing.html"><i class="bi bi-film"></i><span>Film &amp; Pricing</span></a>
+      <a href="leaks_action.html"><i class="bi bi-exclamation-triangle"></i><span>Leaks &amp; Action</span></a>
+      <a class="active" href="transformer_forecast_widget.html"><i class="bi bi-cpu"></i><span>Transformer Forecast</span></a>
+    </nav>
+    <hr class="sb-hr"/>
+    <div class="sb-filter">
+      <label>Store</label>
+      <div class="cb-group">
+        <label class="cb-label"><input checked="" id="cb1" type="checkbox" value="1"/> Store 1</label>
+        <label class="cb-label"><input checked="" id="cb2" type="checkbox" value="2"/> Store 2</label>
+      </div>
+      <div class="sb-caption">Source: dvdrental_ori · PostgreSQL</div>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <div class="page-header" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:1.5rem;">
+      <div>
+        <div class="hero-tag"><i class="bi bi-cpu"></i> AI-Powered Forecasting</div>
+        <h1 style="font-family:'Space Grotesk',sans-serif;font-size:1.6rem;font-weight:700;color:var(--txt);margin-top:4px;">
+          Transformer Time-Series Forecast
+        </h1>
+        <p style="font-size:0.82rem;color:var(--txt2);margin-top:4px;">
+          Revenue prediction using Vanilla Transformer Encoder (PyTorch) with MC Dropout confidence interval
+        </p>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;">
+        <span class="tf-badge" id="torch-badge"><i class="bi bi-circle-fill" style="font-size:0.5rem;"></i> Checking…</span>
+        <span class="tf-badge"><i class="bi bi-diagram-3"></i> 2-Layer Transformer</span>
+        <span class="tf-badge"><i class="bi bi-shuffle"></i> MC Dropout CI</span>
+      </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar" id="statusBar">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Click "Run Transformer Forecast" to start training &amp; inference.</span>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls-row">
+      <span class="ctrl-label">Stores:</span>
+      <div class="store-toggle">
+        <button class="store-btn active" data-store="1" onclick="toggleStore(this)">Store 1</button>
+        <button class="store-btn s2 active" data-store="2" onclick="toggleStore(this)">Store 2</button>
+        <button class="store-btn comb active" data-store="combined" onclick="toggleStore(this)">Combined</button>
+      </div>
+      <span class="ctrl-label" style="margin-left:12px;">Horizon:</span>
+      <select class="ctrl-select" id="horizonSel">
+        <option value="1">1 Month</option>
+        <option value="2">2 Months</option>
+        <option value="3" selected>3 Months</option>
+      </select>
+      <button class="run-btn" id="runBtn" onclick="runForecast()">
+        <i class="bi bi-play-fill"></i> Run Transformer Forecast
+      </button>
+    </div>
+
+    <!-- Results -->
+    <div id="resultsArea">
+      <div class="empty-state">
+        <i class="bi bi-cpu"></i>
+        <p>Press <b>Run Transformer Forecast</b> to train the model and view predictions.</p>
+        <p style="margin-top:6px;font-size:0.78rem;color:var(--txt3);">Training ~300 epochs — typically completes in a few seconds.</p>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Architecture Info -->
+    <div class="chart-section">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem;">
+        <div class="chart-title"><i class="bi bi-diagram-3" style="color:#5b7ec5;"></i> Model Architecture</div>
+      </div>
+      <div class="arch-box">
+        <div class="arch-row"><span class="arch-key">Type</span><span class="arch-val">Vanilla Transformer Encoder (PyTorch)</span></div>
+        <div class="arch-row"><span class="arch-key">Input Projection</span><span class="arch-val"><code>Linear(1 → 64)</code></span></div>
+        <div class="arch-row"><span class="arch-key">Positional Encoding</span><span class="arch-val">Sinusoidal (fixed)</span></div>
+        <div class="arch-row"><span class="arch-key">Encoder Layers</span><span class="arch-val">2 × TransformerEncoderLayer</span></div>
+        <div class="arch-row"><span class="arch-key">Attention Heads</span><span class="arch-val">4 heads, d_model = 64</span></div>
+        <div class="arch-row"><span class="arch-key">Feedforward Dim</span><span class="arch-val">128</span></div>
+        <div class="arch-row"><span class="arch-key">Dropout</span><span class="arch-val">0.1 (also active during inference for MC Dropout)</span></div>
+        <div class="arch-row"><span class="arch-key">Output Head</span><span class="arch-val"><code>Linear(64 → horizon)</code> — direct multi-step prediction</span></div>
+        <div class="arch-row"><span class="arch-key">Optimizer</span><span class="arch-val">Adam, lr = 1e-3</span></div>
+        <div class="arch-row"><span class="arch-key">Loss Function</span><span class="arch-val">HuberLoss (robust against outliers)</span></div>
+        <div class="arch-row"><span class="arch-key">Normalization</span><span class="arch-val">Min-Max per series before training</span></div>
+        <div class="arch-row"><span class="arch-key">Confidence Interval</span><span class="arch-val">MC Dropout — 50 forward passes → mean ± 1 std</span></div>
+        <div class="arch-row"><span class="arch-key">Fallback</span><span class="arch-val">ExponentialSmoothing (statsmodels) → MovingAverage+Trend</span></div>
+        <div class="arch-row"><span class="arch-key">Forecast Endpoint</span><span class="arch-val"><code>GET /api/transformer/forecast?horizon=3&amp;stores=1,2</code></span></div>
+        <div class="arch-row"><span class="arch-key">Info Endpoint</span><span class="arch-val"><code>GET /api/transformer/info</code></span></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="chatbot_widget.js"></script>
+
+<script>
+const API = '';
+const STORE_COLORS = {
+  'store_1' : { line: '#5b7ec5', fill: 'rgba(91,126,197,0.15)' },
+  'store_2' : { line: '#3a9e8f', fill: 'rgba(58,158,143,0.15)' },
+  'combined': { line: '#c89a3a', fill: 'rgba(200,154,58,0.15)' },
+};
+const STORE_LABELS = { 'store_1': 'Store 1', 'store_2': 'Store 2', 'combined': 'Combined' };
+
+let activeStores = new Set(['store_1', 'store_2', 'combined']);
+let lastResult   = null;
+
+async function checkTorchStatus() {
+  try {
+    const r = await fetch(`${API}/api/transformer/info`);
+    const d = await r.json();
+    const badge = document.getElementById('torch-badge');
+    if (d.torch_available) {
+      badge.className = 'tf-badge green';
+      badge.innerHTML = '<i class="bi bi-check-circle-fill"></i> PyTorch ' + d.framework.replace('PyTorch ','');
+    } else {
+      badge.className = 'tf-badge amber';
+      badge.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> Fallback Mode';
+    }
+  } catch(e) {
+    const badge = document.getElementById('torch-badge');
+    badge.className = 'tf-badge amber';
+    badge.innerHTML = '<i class="bi bi-wifi-off"></i> API Unreachable';
+  }
+}
+
+function toggleStore(btn) {
+  const key = btn.dataset.store === 'combined' ? 'combined' : `store_${btn.dataset.store}`;
+  if (activeStores.has(key)) { activeStores.delete(key); btn.classList.remove('active'); }
+  else { activeStores.add(key); btn.classList.add('active'); }
+  if (lastResult) renderResults(lastResult);
+}
+
+async function runForecast(force = false) {
+  const btn      = document.getElementById('runBtn');
+  const dot      = document.getElementById('statusDot');
+  const statusTx = document.getElementById('statusText');
+
+  btn.disabled  = true;
+  dot.className = 'status-dot running';
+  statusTx.textContent = 'Training Transformer model… (300 epochs, usually < 10 seconds)';
+
+  const horizon  = document.getElementById('horizonSel').value;
+  const storeNos = [...activeStores].filter(s => s !== 'combined').map(s => s.replace('store_', '')).join(',') || '1,2';
+
+  try {
+    const url = `${API}/api/transformer/forecast?horizon=${horizon}&stores=${storeNos}${force ? '&force=true' : ''}`;
+    const res  = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    lastResult     = data;
+    dot.className  = 'status-dot done';
+    const method   = data.combined?.method || Object.values(data)[0]?.method || '?';
+    statusTx.textContent = `✅ Done — ${method}`;
+    renderResults(data);
+  } catch(e) {
+    dot.className  = 'status-dot error';
+    statusTx.textContent = `❌ Error: ${e.message}`;
+    document.getElementById('resultsArea').innerHTML =
+      `<div class="empty-state"><i class="bi bi-exclamation-circle" style="color:#ef4444;"></i>
+       <p>${e.message}</p>
+       <p style="margin-top:6px;font-size:0.78rem;color:var(--txt3);">Make sure the Flask server is running and PyTorch/statsmodels are installed.</p></div>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderResults(data) {
+  const area = document.getElementById('resultsArea');
+  area.innerHTML = '';
+  for (const key of ['store_1', 'store_2', 'combined']) {
+    if (!activeStores.has(key) || !data[key]) continue;
+    area.appendChild(buildSection(key, data[key]));
+  }
+}
+
+function buildSection(key, d) {
+  const wrap  = document.createElement('div');
+  wrap.className = 'chart-section';
+  const label  = STORE_LABELS[key];
+  const color  = STORE_COLORS[key];
+  const method = d.method || '';
+  const mi     = d.model_info || {};
+  const fc     = d.forecast || [];
+  const hist   = d.historical || [];
+
+  wrap.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
+      <div class="chart-title" style="color:${color.line};">${label}</div>
+      <span class="tf-badge" style="font-size:0.68rem;">${method}</span>
+      ${d.error ? `<span class="tf-badge amber"><i class="bi bi-exclamation-triangle"></i> ${d.error}</span>` : ''}
+    </div>
+    <div class="chart-sub">Historical data + ${fc.length}-month forecast with confidence interval</div>
+    <div id="plot-${key}" style="height:320px;"></div>
+  `;
+
+  if (fc.length) {
+    const tbl = document.createElement('div');
+    tbl.style.marginTop = '1rem';
+    tbl.innerHTML = `
+      <table class="forecast-table">
+        <thead><tr>
+          <th>Step</th><th>Predicted Revenue</th><th>CI Lower (−1σ)</th><th>CI Upper (+1σ)</th><th>Uncertainty</th>
+        </tr></thead>
+        <tbody>
+          ${fc.map(r => {
+            const unc = ((r.upper - r.lower) / 2).toFixed(2);
+            return `<tr>
+              <td>+${r.step} month${r.step > 1 ? 's' : ''}</td>
+              <td class="mean-cell">$${fmt(r.mean)}</td>
+              <td class="ci-cell">$${fmt(r.lower)}</td>
+              <td class="ci-cell">$${fmt(r.upper)}</td>
+              <td class="ci-cell">± $${fmt(unc)}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+    wrap.appendChild(tbl);
+  }
+
+  if (mi && Object.keys(mi).length) {
+    const miDiv = document.createElement('div');
+    miDiv.innerHTML = `
+      <div class="model-info-grid" style="margin-top:1rem;">
+        <div class="mi-card"><div class="mi-label">Training Data</div><div class="mi-value">${mi.data_points ?? '—'}</div><div class="mi-sub">historical months</div></div>
+        <div class="mi-card"><div class="mi-label">Seq Length</div><div class="mi-value">${mi.seq_len ?? '—'}</div><div class="mi-sub">context window</div></div>
+        <div class="mi-card"><div class="mi-label">Epochs</div><div class="mi-value">${mi.epochs ?? '—'}</div><div class="mi-sub">training iterations</div></div>
+        <div class="mi-card"><div class="mi-label">Train Time</div><div class="mi-value">${mi.train_seconds ?? 0}s</div><div class="mi-sub">training duration</div></div>
+      </div>`;
+    wrap.appendChild(miDiv);
+  }
+
+  setTimeout(() => plotChart(key, hist, fc, color), 50);
+  return wrap;
+}
+
+function plotChart(key, hist, fc, color) {
+  const el = document.getElementById(`plot-${key}`);
+  if (!el) return;
+
+  const histX      = hist.map(h => h.period);
+  const histY      = hist.map(h => h.revenue);
+  const lastPeriod = histX[histX.length - 1];
+  const fcX  = [lastPeriod, ...fc.map((_, i) => `Forecast +${i+1}`)];
+  const fcY  = [histY[histY.length - 1], ...fc.map(f => f.mean)];
+  const loY  = [histY[histY.length - 1], ...fc.map(f => f.lower)];
+  const hiY  = [histY[histY.length - 1], ...fc.map(f => f.upper)];
+
+  Plotly.newPlot(el, [
+    { x: [...fcX, ...fcX.slice().reverse()], y: [...hiY, ...loY.slice().reverse()],
+      fill: 'toself', fillcolor: color.fill, line: { color: 'transparent' },
+      showlegend: false, hoverinfo: 'skip', type: 'scatter' },
+    { x: histX, y: histY, name: 'Historical', type: 'scatter', mode: 'lines+markers',
+      line: { color: color.line, width: 2 }, marker: { size: 5, color: color.line } },
+    { x: fcX, y: fcY, name: 'Forecast (mean)', type: 'scatter', mode: 'lines+markers',
+      line: { color: color.line, width: 2.5, dash: 'dot' },
+      marker: { size: 7, color: color.line, symbol: 'diamond' } },
+  ], {
+    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+    margin: { t: 10, r: 20, b: 50, l: 60 },
+    font: { family: 'Inter', color: '#8b91a8', size: 11 },
+    xaxis: { gridcolor: '#1e2535', linecolor: '#1e2535', tickangle: -30 },
+    yaxis: { gridcolor: '#1e2535', linecolor: '#1e2535', tickprefix: '$', tickformat: ',.0f' },
+    legend: { x: 0, y: 1.05, orientation: 'h', font: { size: 11 } },
+    hovermode: 'x unified',
+    shapes: [{ type: 'line', x0: lastPeriod, x1: lastPeriod, y0: 0, y1: 1,
+      xref: 'x', yref: 'paper', line: { color: '#5b7ec5', width: 1, dash: 'dot' } }],
+    annotations: [{ x: lastPeriod, y: 1, yref: 'paper', text: 'Forecast →',
+      showarrow: false, font: { size: 10, color: '#5b7ec5' },
+      xanchor: 'left', yanchor: 'bottom', xshift: 6 }],
+  }, { responsive: true, displayModeBar: false });
+}
+
+function fmt(v) {
+  return Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+window.addEventListener('DOMContentLoaded', checkTorchStatus);
+</script>
+</body>
+</html>

@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<title>Leaks &amp; Action — My DVD</title>
+<link href="shared.css" rel="stylesheet"/>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<style>
+    .bottom-line {
+      background: #13161f;
+      border: 1px solid #1e2535;
+      border-radius: 12px;
+      padding: 1.4rem 2rem;
+      text-align: center;
+      margin-top: 1rem;
+    }
+
+    .bottom-line .bl-tag {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #4a5270;
+      margin-bottom: 0.4rem;
+    }
+
+    .bottom-line .bl-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #e8eaf0;
+    }
+
+    .bottom-line .bl-sub {
+      font-size: 0.82rem;
+      color: #3e4455;
+      margin-top: 4px;
+    }
+
+    input[type=range] {
+      accent-color: var(--blue);
+    }
+  </style>
+</head>
+<body>
+<div class="layout">
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar">
+<div class="sb-brand">
+<div class="title"><i class="bi bi-film"></i> My DVD</div>
+<div class="sub">DVD Store Intelligence Dashboard</div>
+</div>
+<hr class="sb-hr"/>
+<nav class="sb-nav">
+<a href="overview.html"><i class="bi bi-house"></i><span>Overview</span></a>
+<a href="revenue_stores.html"><i class="bi bi-graph-up"></i><span>Revenue &amp; Stores</span></a>
+<a href="film_pricing.html"><i class="bi bi-film"></i><span>Film &amp; Pricing</span></a>
+<a class="active" href="leaks_action.html"><i class="bi bi-exclamation-triangle"></i><span>Leaks &amp;
+            Action</span></a>
+<a href="transformer_forecast_widget.html"><i class="bi bi-cpu"></i><span>Transformer Forecast</span></a>
+</nav>
+<hr class="sb-hr"/>
+<div class="sb-filter">
+<label>Store</label>
+<div class="cb-group">
+<label class="cb-label"><input checked="" id="cb1" type="checkbox" value="1"/> Store 1</label>
+<label class="cb-label"><input checked="" id="cb2" type="checkbox" value="2"/> Store 2</label>
+</div>
+</div>
+<div class="sb-caption">Source: dvdrental_ori · PostgreSQL</div>
+</aside>
+<!-- ── MAIN ── -->
+<main class="main">
+<!-- HERO -->
+<div class="hero">
+<div class="hero-tag"><i class="bi bi-exclamation-triangle"></i> Revenue Recovery</div>
+<div class="hero-title"><span>Leaks &amp; Action</span></div>
+<div class="hero-sub">Late return detection · Leaked revenue calculation · Action recommendations</div>
+</div>
+<!-- KPI Row -->
+<div class="kpi-grid">
+<div class="kpi-card rose"><i class="bi bi-cash-coin kpi-icon"></i>
+<div class="kpi-label">Potential Late Fees</div>
+<div class="kpi-value" id="k-leaked">—</div>
+<div class="kpi-sub">Uncollected revenue</div>
+</div>
+<div class="kpi-card amber"><i class="bi bi-percent kpi-icon"></i>
+<div class="kpi-label">Avg Late Return Rate</div>
+<div class="kpi-value" id="k-laterate">—</div>
+<div class="kpi-sub">Of all rentals</div>
+</div>
+<div class="kpi-card slate"><i class="bi bi-clock-history kpi-icon"></i>
+<div class="kpi-label">Total Late Returns</div>
+<div class="kpi-value" id="k-latecount">—</div>
+<div class="kpi-sub">Cases</div>
+</div>
+<div class="kpi-card green"><i class="bi bi-arrow-up-circle kpi-icon"></i>
+<div class="kpi-label">50% Recovery Target</div>
+<div class="kpi-value" id="k-recovery">—</div>
+<div class="kpi-sub">If 50% is collected</div>
+</div>
+</div>
+<!-- SECTION A: Stacked bar -->
+<div class="sec-head"><i class="bi bi-bar-chart-line"></i> Revenue vs Late Fees per Month</div>
+<div class="sec-sub">How much actual revenue was collected vs how much was lost to late returns each month?</div>
+<div class="chart-wrap">
+<div id="chart-leakbar" style="height:400px">
+<div class="loading">Loading…</div>
+</div>
+</div>
+<div class="chart-summary rose" id="sum-leakbar"><span class="label">Watch Out</span>Loading…</div>
+<div class="divider"></div>
+<!-- SECTION B: Per Store + Per Category -->
+<div class="sec-head"><i class="bi bi-pie-chart"></i> Leak Breakdown by Store &amp; Category</div>
+<div class="sec-sub">Which store leaks the most? Which film categories are the biggest offenders?</div>
+<div class="col2">
+<div>
+<div class="chart-wrap">
+<div id="chart-storeleak" style="height:320px">
+<div class="loading">Loading…</div>
+</div>
+</div>
+<div class="chart-summary rose" id="sum-storeleak"><span class="label">Watch Out</span>Loading…</div>
+</div>
+<div>
+<div class="chart-wrap">
+<div id="chart-cateak" style="height:320px">
+<div class="loading">Loading…</div>
+</div>
+</div>
+<div class="chart-summary amber" id="sum-cateak"><span class="label">Action Point</span>Loading…</div>
+</div>
+</div>
+<div class="divider"></div>
+<!-- SECTION C: Action Plan -->
+<div class="sec-head"><i class="bi bi-check2-square"></i> Action Plan</div>
+<div class="sec-sub">Four concrete steps based on the full dashboard analysis.</div>
+<div class="action-grid" id="action-grid">Loading…</div>
+<!-- Bottom Line -->
+<div class="bottom-line" id="bottom-line">
+<div class="bl-tag">Bottom Line</div>
+<div class="bl-title">Potential additional revenue: <span id="bl-val" style="color:#3a9e8f">—</span></div>
+<div class="bl-sub">From improving the late return collection system alone — no new customers, no new locations
+          required.</div>
+</div>
+</main>
+</div>
+<script>
+    const API = 'http://127.0.0.1:5000';
+    const STORE_COLOR = { 1: '#5b7ec5', 2: '#3a9e8f' };
+    const C = { blue: '#5b7ec5', teal: '#3a9e8f', slate: '#7c86a2', amber: '#c89a3a', rose: '#b05a6a', green: '#4a9668' };
+    const BASE_LAYOUT = {
+      paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: '#13161f',
+      font: { family: 'Inter,sans-serif', color: '#8b91a8', size: 13 },
+      margin: { l: 16, r: 16, t: 46, b: 16 },
+      legend: { bgcolor: 'rgba(19,22,31,0.9)', bordercolor: '#1e2535', borderwidth: 1, font: { size: 12 }, orientation: 'h', y: -0.22 },
+      xaxis: { gridcolor: '#1e2535', linecolor: '#2a3040', zerolinecolor: '#2a3040', tickfont: { size: 12, color: '#6b7280' } },
+      yaxis: { gridcolor: '#1e2535', linecolor: '#2a3040', zerolinecolor: '#2a3040', tickfont: { size: 12, color: '#6b7280' } },
+    };
+    const CFG = { responsive: true, displayModeBar: false };
+
+    let storeFilter = [1, 2];
+    let monthlyData = [], catData = [];
+    let totalLeaked = 0, recovery50 = 0, topCatLate = '', worstStore = { id: 0, pct: 0 };
+
+    const fmt = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    const fmtN = n => Number(n).toLocaleString('en-US');
+
+    // ── Load ──────────────────────────────────────────────────────────────────────
+    async function loadAll() {
+      const stores = storeFilter.join(',');
+      const [mon, cat] = await Promise.all([
+        fetch(`${API}/api/leaks/monthly?stores=${stores}`).then(r => r.json()),
+        fetch(`${API}/api/leaks/by_category`).then(r => r.json()),
+      ]);
+      monthlyData = mon;
+      catData = cat;
+      computeAggregates();
+      renderAll();
+    }
+
+    // ── Aggregate ─────────────────────────────────────────────────────────────────
+    function computeAggregates() {
+      // Group by month (sum across stores)
+      const byMonth = {};
+      monthlyData.forEach(r => {
+        if (!byMonth[r.month]) byMonth[r.month] = { actual: 0, late_fees: 0, late_count: 0, total_rentals: 0 };
+        byMonth[r.month].actual += +r.actual_revenue;
+        byMonth[r.month].late_fees += +r.potential_late_fees;
+        byMonth[r.month].late_count += +r.late_count;
+        byMonth[r.month].total_rentals += +r.total_rentals;
+      });
+
+      const months = Object.keys(byMonth).sort();
+      const aggArr = months.map(m => ({
+        month: m,
+        actual: byMonth[m].actual,
+        late_fees: byMonth[m].late_fees,
+        late_count: byMonth[m].late_count,
+        total_rentals: byMonth[m].total_rentals,
+        late_rate: byMonth[m].total_rentals ? byMonth[m].late_count / byMonth[m].total_rentals * 100 : 0,
+      }));
+
+      window._aggArr = aggArr; // store for rendering
+
+      totalLeaked = aggArr.reduce((s, r) => s + r.late_fees, 0);
+      const avgLateRate = aggArr.length ? aggArr.reduce((s, r) => s + r.late_rate, 0) / aggArr.length : 0;
+      const totalLateCount = aggArr.reduce((s, r) => s + r.late_count, 0);
+      recovery50 = totalLeaked * 0.5;
+
+      document.getElementById('k-leaked').textContent = fmt(totalLeaked);
+      document.getElementById('k-laterate').textContent = avgLateRate.toFixed(1) + '%';
+      document.getElementById('k-latecount').textContent = fmtN(totalLateCount);
+      document.getElementById('k-recovery').textContent = fmt(recovery50);
+      document.getElementById('bl-val').textContent = fmt(recovery50) + '+';
+
+      // Per-store aggregates for store leak chart
+      const byStore = {};
+      monthlyData.forEach(r => {
+        const sid = r.store_id;
+        if (!byStore[sid]) byStore[sid] = { actual: 0, late_fees: 0 };
+        byStore[sid].actual += +r.actual_revenue;
+        byStore[sid].late_fees += +r.potential_late_fees;
+      });
+      const storeArr = Object.entries(byStore).map(([sid, v]) => ({
+        store_id: +sid, actual: v.actual, late_fees: v.late_fees,
+        leak_pct: v.actual ? v.late_fees / v.actual * 100 : 0,
+      }));
+      window._storeArr = storeArr;
+      if (storeArr.length) {
+        const worst = storeArr.reduce((a, b) => a.leak_pct > b.leak_pct ? a : b);
+        worstStore = { id: worst.store_id, pct: worst.leak_pct };
+      }
+
+      // Top leaking category
+      if (catData.length) {
+        const topCat = catData.reduce((a, b) => +a.late_fees > +b.late_fees ? a : b);
+        topCatLate = topCat.category;
+      }
+    }
+
+    // ── Render All ─────────────────────────────────────────────────────────────────
+    function renderAll() {
+      renderLeakBar();
+      renderStoreLeaks();
+      renderCatLeaks();
+      renderActionPlan();
+    }
+
+    // ── Stacked Bar ──────────────────────────────────────────────────────────────
+    function renderLeakBar() {
+      const agg = window._aggArr || [];
+      const months = agg.map(r => r.month);
+
+      Plotly.react('chart-leakbar', [
+        { x: months, y: agg.map(r => r.actual), name: 'Actual Revenue', type: 'bar', marker: { color: C.blue, line: { width: 0 } }, hovertemplate: '%{x}<br>Actual: <b>$%{y:,.0f}</b><extra></extra>' },
+        { x: months, y: agg.map(r => r.late_fees), name: 'Potential Late Fees (uncollected)', type: 'bar', marker: { color: C.rose, line: { width: 0 }, opacity: 0.85 }, hovertemplate: '%{x}<br>Late Fees: <b>$%{y:,.0f}</b><extra></extra>' },
+        { x: months, y: agg.map(r => r.late_rate), name: 'Late Return Rate (%)', type: 'scatter', mode: 'lines+markers', yaxis: 'y2', line: { color: C.amber, width: 2.5, dash: 'dot' }, marker: { size: 7, color: C.amber }, hovertemplate: '%{x}<br>Late Rate: <b>%{y:.1f}%</b><extra></extra>' },
+      ], {
+        ...BASE_LAYOUT, barmode: 'stack', height: 400, hovermode: 'x unified',
+        title: { text: 'Monthly Revenue vs Uncollected Late Fees', font: { family: 'Space Grotesk,sans-serif', size: 14, color: '#c8ccda' } },
+        yaxis: { ...BASE_LAYOUT.yaxis, tickprefix: '$', tickformat: ',.0f' },
+        yaxis2: { title: { text: 'Late Return Rate (%)', font: { color: C.amber, size: 12 } }, overlaying: 'y', side: 'right', ticksuffix: '%', tickfont: { color: C.amber, size: 11 }, gridcolor: 'rgba(0,0,0,0)' },
+        xaxis: { ...BASE_LAYOUT.xaxis, tickformat: '%b %Y' },
+      }, CFG);
+
+      document.getElementById('sum-leakbar').innerHTML = `<span class="label">Watch Out</span>Blue bars = revenue actually collected. Red bars = fees <b>never charged</b> for overdue rentals, stacked on top. The amber dashed line shows what percentage of rentals were returned late. In total, <b>${fmt(totalLeaked)}</b> in potential fees went uncollected.`;
+    }
+
+    // ── Store Leak Chart ──────────────────────────────────────────────────────────
+    function renderStoreLeaks() {
+      const storeArr = window._storeArr || [];
+      const labels = storeArr.map(r => `Store ${r.store_id}`);
+      const vals = storeArr.map(r => r.late_fees);
+      const clrs = storeArr.map(r => STORE_COLOR[r.store_id] || C.slate);
+      const texts = storeArr.map(r => `${fmt(r.late_fees)}\n(${r.leak_pct.toFixed(1)}% of rev)`);
+
+      Plotly.react('chart-storeleak', [{
+        x: labels, y: vals, type: 'bar',
+        marker: { color: clrs, line: { width: 0 } },
+        text: texts, textposition: 'outside', textfont: { size: 12, color: '#8b91a8' },
+      }], { ...BASE_LAYOUT, height: 320, showlegend: false, title: { text: 'Uncollected Late Fees per Store', font: { family: 'Space Grotesk,sans-serif', size: 13, color: '#c8ccda' } }, yaxis: { ...BASE_LAYOUT.yaxis, tickprefix: '$', tickformat: ',.0f' } }, CFG);
+
+      document.getElementById('sum-storeleak').innerHTML = `<span class="label">Watch Out</span>Store ${worstStore.id} leaks the most — <b>${worstStore.pct.toFixed(1)}%</b> of its actual revenue is lost to uncollected late fees. This is a hidden cost that doesn't appear in standard revenue reports.`;
+    }
+
+    // ── Category Leak Chart ───────────────────────────────────────────────────────
+    function renderCatLeaks() {
+      const top8 = catData.slice(0, 8);
+      Plotly.react('chart-cateak', [{
+        x: top8.map(r => +r.late_fees), y: top8.map(r => r.category),
+        type: 'bar', orientation: 'h',
+        marker: { color: top8.map(r => +r.late_fees), colorscale: [[0, '#1f1020'], [0.5, '#7a2a38'], [1, C.rose]], line: { width: 0 } },
+        text: top8.map(r => fmt(r.late_fees)), textposition: 'outside', textfont: { size: 11, color: '#8b91a8' },
+        hovertemplate: '%{y}<br>Late Fees: <b>$%{x:,.0f}</b><extra></extra>',
+      }], { ...BASE_LAYOUT, height: 320, showlegend: false, title: { text: 'Potential Late Fees by Film Category', font: { family: 'Space Grotesk,sans-serif', size: 13, color: '#c8ccda' } }, xaxis: { ...BASE_LAYOUT.xaxis, tickprefix: '$', tickformat: ',.0f' }, yaxis: { ...BASE_LAYOUT.yaxis, autorange: 'reversed' } }, CFG);
+
+      document.getElementById('sum-cateak').innerHTML = `<span class="label">Action Point</span><b>${topCatLate}</b> generates the most uncollected late fees — usually meaning high demand but limited supply. Add more copies to increase rental volume, or enforce the late fee policy more strictly for this category.`;
+    }
+
+    // ── Action Plan ───────────────────────────────────────────────────────────────
+    function renderActionPlan() {
+      const actions = [
+        {
+          clr: C.rose, icon: 'cash-coin', title: 'Fix the Revenue Leak',
+          body: `Store ${worstStore.id} loses <b>${worstStore.pct.toFixed(1)}%</b> of its revenue to uncollected late fees. An automated reminder on day 5 of a rental could recover up to <b>${fmt(recovery50)}</b> — without adding a single new customer.`
+        },
+        {
+          clr: C.amber, icon: 'tag', title: 'Reprice the Dead Zone',
+          body: `Films that are cheap but held too long are blocking inventory. Raising their rental rate by 20–30% creates urgency to return sooner and increases revenue per transaction.`
+        },
+        {
+          clr: C.blue, icon: 'shop', title: 'Strengthen the Weaker Store',
+          body: `Use the pricing quadrant to identify where the gap comes from. If it's product mix (too many cheap films), shift inventory toward premium titles. If it's traffic, consider a local promotion.`
+        },
+        {
+          clr: C.teal, icon: 'collection-play', title: `Restock High-Demand Categories`,
+          body: `<b>${topCatLate}</b> has the most late returns, signalling high demand but limited supply. Adding more copies directly increases rental volume and reduces wait time for customers.`
+        },
+      ];
+
+      document.getElementById('action-grid').innerHTML = actions.map(a => `
+    <div class="action-card" style="border-top:2px solid ${a.clr}">
+      <div class="ac-title"><i class="bi bi-${a.icon}" style="color:${a.clr};font-size:1.1rem"></i> ${a.title}</div>
+      <div class="ac-body">${a.body}</div>
+    </div>
+  `).join('');
+    }
+
+    // ── Filters ───────────────────────────────────────────────────────────────────
+    document.querySelectorAll('input[type=checkbox]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        storeFilter = [...document.querySelectorAll('input[type=checkbox]:checked')].map(c => +c.value);
+        if (!storeFilter.length) storeFilter = [1, 2];
+        loadAll();
+      });
+    });
+
+    // ── Boot ──────────────────────────────────────────────────────────────────────
+    loadAll();
+  </script>
+<!-- ── DVD-AI Chatbot Widget ── -->
+<script src="chatbot_widget.js"></script>
+</body>
+</html>

@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<title>Film &amp; Pricing — My DVD</title>
+<link href="shared.css" rel="stylesheet"/>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<style>
+    /* ── Chart size tokens — edit here to resize everything at once ── */
+    :root {
+      --chart-h-sm: 340px;
+      /* duration histogram & category donut */
+      --chart-h-md: 420px;
+      /* top 10 films horizontal bar */
+      --chart-h-lg: 480px;
+      /* pricing scatter */
+      --chart-h-xs: 300px;
+      /* quadrant bar */
+      --chart-gap: 1.2rem;
+      /* gap between chart and its summary */
+    }
+
+    /* ── Grid layouts ── */
+
+    /* Duration + Donut: equal 50/50 columns matching Streamlit [1.2, 1] ≈ equal */
+    .col2-asym {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 1.4rem;
+      align-items: start;
+    }
+
+    /* Quadrant bar + segment table: matching Streamlit [1.3, 1] */
+    .col2 {
+      display: grid;
+      grid-template-columns: 1.3fr 1fr;
+      gap: 1.4rem;
+      align-items: start;
+    }
+
+    /* ── Chart wrapper ── */
+    .chart-wrap {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.6rem 0.5rem 0.4rem;
+      overflow: hidden;
+    }
+
+    /* ── Chart summary ── */
+    .chart-summary {
+      margin-top: var(--chart-gap);
+      font-size: 0.83rem;
+      color: var(--txt2);
+      line-height: 1.55;
+      padding: 0.65rem 1rem;
+      border-radius: 8px;
+      background: rgba(91, 126, 197, 0.07);
+      border-left: 3px solid var(--blue);
+    }
+
+    .chart-summary .label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--blue);
+      display: block;
+      margin-bottom: 0.3rem;
+    }
+
+    .chart-summary.teal {
+      background: rgba(58, 158, 143, 0.07);
+      border-left-color: #3a9e8f;
+    }
+
+    .chart-summary.teal .label {
+      color: #3a9e8f;
+    }
+
+    .chart-summary.amber {
+      background: rgba(200, 154, 58, 0.07);
+      border-left-color: #c89a3a;
+    }
+
+    .chart-summary.amber .label {
+      color: #c89a3a;
+    }
+
+    .chart-summary.rose {
+      background: rgba(176, 90, 106, 0.07);
+      border-left-color: #b05a6a;
+    }
+
+    .chart-summary.rose .label {
+      color: #b05a6a;
+    }
+
+    /* ── Divider ── */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 2rem 0;
+    }
+
+    /* ── Section header ── */
+    .sec-head {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #c8ccda;
+      margin-bottom: 0.2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .sec-sub {
+      font-size: 0.82rem;
+      color: var(--txt4);
+      margin-bottom: 1rem;
+    }
+
+    /* ── Loading placeholder ── */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--txt4);
+      font-size: 0.85rem;
+    }
+
+    /* ── Segment cards ── */
+    .seg-card {
+      background: var(--card);
+      border-left: 3px solid var(--blue);
+      border-radius: 0 9px 9px 0;
+      padding: 0.65rem 1rem;
+      margin-bottom: 0.45rem;
+    }
+
+    .seg-card .seg-name {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+
+    .seg-card .seg-val {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #e8eaf0;
+      margin-top: 2px;
+    }
+
+    .seg-card .seg-sub {
+      font-size: 0.72rem;
+      color: var(--txt4);
+      margin-top: 2px;
+    }
+
+    /* ── ML box ── */
+    .ml-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.4rem;
+      margin-top: 0.8rem;
+    }
+
+    .ml-box h4 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.95rem;
+      color: #c8ccda;
+      margin-bottom: 0.8rem;
+    }
+
+    .ml-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 1.2rem;
+    }
+
+    .ml-form label {
+      font-size: 0.78rem;
+      color: var(--txt4);
+      display: block;
+      margin: 0.6rem 0 3px;
+    }
+
+    .ml-form select,
+    .ml-form input[type=range] {
+      width: 100%;
+    }
+
+    .ml-result {
+      background: rgba(124, 58, 237, 0.08);
+      border: 1px solid rgba(124, 58, 237, 0.3);
+      border-left: 4px solid #7c3aed;
+      border-radius: 8px;
+      padding: 1rem 1.2rem;
+      margin-top: 0.6rem;
+    }
+
+    .ml-result .pred-label {
+      font-size: 0.72rem;
+      color: #a78bfa;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .ml-result .pred-val {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.1;
+      margin: 0.3rem 0 0.1rem;
+    }
+
+    .ml-result .pred-sub {
+      font-size: 0.83rem;
+      color: #94a3b8;
+    }
+
+    input[type=range] {
+      accent-color: var(--blue);
+    }
+
+    .expand-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.5rem 1.1rem;
+      color: var(--txt2);
+      font-size: 0.83rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.18s;
+    }
+
+    .expand-btn:hover {
+      border-color: var(--blue);
+      color: var(--blue);
+    }
+
+    /* ── Responsive: stack columns on narrow screens ── */
+    @media (max-width: 860px) {
+
+      .col2-asym,
+      .col2 {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="layout">
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar">
+<div class="sb-brand">
+<div class="title"><i class="bi bi-film"></i> My DVD</div>
+<div class="sub">DVD Store Intelligence Dashboard</div>
+</div>
+<hr class="sb-hr"/>
+<nav class="sb-nav">
+<a href="overview.html"><i class="bi bi-house"></i><span>Overview</span></a>
+<a href="revenue_stores.html"><i class="bi bi-graph-up"></i><span>Revenue &amp; Stores</span></a>
+<a class="active" href="film_pricing.html"><i class="bi bi-film"></i><span>Film &amp; Pricing</span></a>
+<a href="leaks_action.html"><i class="bi bi-exclamation-triangle"></i><span>Leaks &amp; Action</span></a>
+<a href="transformer_forecast_widget.html"><i class="bi bi-cpu"></i><span>Transformer Forecast</span></a>
+</nav>
+<hr class="sb-hr"/>
+<div class="sb-filter">
+<label>Store</label>
+<div class="cb-group">
+<label class="cb-label"><input checked="" id="cb1" type="checkbox" value="1"/> Store 1</label>
+<label class="cb-label"><input checked="" id="cb2" type="checkbox" value="2"/> Store 2</label>
+</div>
+</div>
+<div class="sb-caption">Source: dvdrental_ori · PostgreSQL</div>
+</aside>
+<!-- ── MAIN ── -->
+<main class="main">
+<!-- HERO -->
+<div class="hero">
+<div class="hero-tag"><i class="bi bi-film"></i> Film &amp; Pricing Intelligence</div>
+<div class="hero-title"><span>Film &amp; Pricing</span></div>
+<div class="hero-sub">Rental duration · Top revenue films · Category breakdown · Pricing quadrant</div>
+</div>
+<!-- ══ SECTION A: Duration + Donut ══ -->
+<div class="sec-head"><i class="bi bi-clock-history"></i> Rental Duration Distribution</div>
+<div class="sec-sub">How long do customers hold films before returning them?</div>
+<div class="col2-asym">
+<!-- Duration histogram -->
+<div>
+<div class="chart-wrap">
+<div id="chart-duration" style="height:var(--chart-h-sm)">
+<div class="loading">Loading…</div>
+</div>
+</div>
+<div class="chart-summary" id="sum-duration">
+<span class="label">What this shows</span>Loading…
+          </div>
+</div>
+<!-- Category donut -->
+<div>
+<div class="chart-wrap">
+<div id="chart-catdonut" style="height:var(--chart-h-sm)">
+<div class="loading">Loading…</div>
+</div>
+</div>
+<div class="chart-summary" id="sum-catdonut">
+<span class="label">What this shows</span>Loading…
+          </div>
+</div>
+</div>
+<div class="divider"></div>
+<!-- ══ Top 10 Films ══ -->
+<div class="sec-head"><i class="bi bi-trophy"></i> Top 10 Most Profitable Films</div>
+<div class="sec-sub">Which individual films generated the most revenue?</div>
+<div class="chart-wrap">
+<div id="chart-topfilms" style="height:var(--chart-h-md)">
+<div class="loading">Loading…</div>
+</div>
+</div>
+<div class="chart-summary teal" style="margin-top:var(--chart-gap)">
+<span class="label">Takeaway</span>The longer the bar, the more revenue that film generated. These are your most
+        valuable assets — keeping them in stock and never un-rented is a direct lever on revenue.
+      </div>
+<div class="divider"></div>
+<!-- ══ Pricing Quadrant ══ -->
+<div class="sec-head"><i class="bi bi-grid-3x3-gap"></i> Pricing Quadrant Analysis</div>
+<div class="sec-sub">Is our rental price right? This scatter plot shows the relationship between price and how
+        long customers hold the film.</div>
+<div class="chart-wrap">
+<div id="chart-scatter" style="height:var(--chart-h-lg)">
+<div class="loading">Loading…</div>
+</div>
+</div>
+<div class="chart-summary rose" id="sum-scatter" style="margin-top:var(--chart-gap)">
+<span class="label">Watch Out</span>Loading…
+      </div>
+<div class="divider"></div>
+<!-- ══ Quadrant Bar + Segment Table ══ -->
+<div class="col2">
+<div>
+<div class="chart-wrap">
+<div id="chart-quadbar" style="height:var(--chart-h-xs)">
+<div class="loading">Loading…</div>
+</div>
+</div>
+<div class="chart-summary amber" style="margin-top:var(--chart-gap)">
+<span class="label">Action Point</span>This shows how much total revenue each pricing segment generates.
+            Even if the dead zone has many transactions, its revenue per transaction is low and blocks inventory longer.
+          </div>
+</div>
+<div>
+<div class="sec-head"><i class="bi bi-table"></i> Segment Breakdown</div>
+<div id="seg-table">Loading…</div>
+</div>
+</div>
+<div class="divider"></div>
+<!-- ══ ML Pricing Simulator ══ -->
+<button class="expand-btn" id="ml-toggle-btn" onclick="toggleML()">
+<i class="bi bi-cpu"></i> Predictive Pricing Simulator
+        <i class="bi bi-chevron-down" id="ml-chevron"></i>
+</button>
+<div id="ml-section" style="display:none">
+<div class="ml-box">
+<h4>Use our <b>Random Forest AI engine</b> to forecast how price adjustments impact inventory velocity.</h4>
+<div class="ml-grid">
+<div class="ml-form">
+<label>Select Store</label>
+<select id="ml-store">
+<option value="1">Store 1</option>
+<option value="2">Store 2</option>
+</select>
+<label>Film Category</label>
+<select id="ml-cat">
+<option>Loading…</option>
+</select>
+<label>Rental Rate ($): <b id="ml-rate-val">2.99</b></label>
+<input id="ml-rate" max="9.0" min="0.5" oninput="updateRateLabel(this.value)" step="0.25" type="range" value="2.99"/>
+<button class="btn" onclick="runPredict()" style="margin-top:0.8rem;width:100%">Predict Duration</button>
+</div>
+<div>
+<div class="ml-result" id="ml-result">
+<div class="pred-label">PREDICTED VELOCITY</div>
+<div class="pred-val" id="ml-pred-val">—</div>
+<div class="pred-sub" id="ml-pred-sub">Set parameters and click Predict.</div>
+</div>
+<div style="font-size:0.72rem;color:var(--txt4);margin-top:0.6rem">Model: RandomForestRegressor · Changes
+                in price show non-linear shifts in customer return behavior.</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<script>
+    const API = 'http://127.0.0.1:5000';
+    const STORE_COLOR = { 1: '#5b7ec5', 2: '#3a9e8f' };
+    const Q_COLORS = {
+      'Premium Fast': '#3a9e8f',
+      'Premium Slow': '#c89a3a',
+      'Budget Fast': '#7c86a2',
+      'Budget Slow': '#b05a6a',
+    };
+
+    /* Shared Plotly layout — mirrors Streamlit BASE */
+    const BASE_LAYOUT = {
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: '#13161f',
+      font: { family: 'Inter,sans-serif', color: '#8b91a8', size: 12 },
+      margin: { l: 56, r: 24, t: 48, b: 48 },   /* generous margins like Streamlit */
+      legend: {
+        bgcolor: 'rgba(19,22,31,0.9)',
+        bordercolor: '#1e2535', borderwidth: 1,
+        font: { size: 12 },
+        orientation: 'h', y: -0.18,
+      },
+      xaxis: {
+        gridcolor: '#1e2535', linecolor: '#2a3040', zerolinecolor: '#2a3040',
+        tickfont: { size: 11, color: '#6b7280' },
+        title: { font: { size: 12, color: '#8b91a8' } },
+      },
+      yaxis: {
+        gridcolor: '#1e2535', linecolor: '#2a3040', zerolinecolor: '#2a3040',
+        tickfont: { size: 11, color: '#6b7280' },
+        title: { font: { size: 12, color: '#8b91a8' } },
+      },
+    };
+    const CFG = { responsive: true, displayModeBar: false };
+
+    /* Read CSS var heights so chart JS stays in sync with the tokens */
+    function cssH(varName) {
+      return parseInt(getComputedStyle(document.documentElement).getPropertyValue(varName)) || 340;
+    }
+
+    let storeFilter = [1, 2];
+    let durData = [], catData = [], filmData = [];
+
+    const fmt = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+    /* ── Load ──────────────────────────────────────────────────────────── */
+    async function loadAll() {
+      const stores = storeFilter.join(',');
+      const [dur, cat, film, cats] = await Promise.all([
+        fetch(`${API}/api/film/duration?stores=${stores}`).then(r => r.json()),
+        fetch(`${API}/api/film/category?stores=${stores}`).then(r => r.json()),
+        fetch(`${API}/api/film/topfilms?stores=${stores}`).then(r => r.json()),
+        fetch(`${API}/api/film/categories_list`).then(r => r.json()),
+      ]);
+      durData = dur;
+      catData = cat;
+      filmData = film;
+      populateCatDropdown(cats);
+      renderAll();
+    }
+
+    function renderAll() {
+      renderDuration();
+      renderCatDonut();
+      renderTopFilms();
+      renderScatter();
+    }
+
+    /* ── Duration Histogram ─────────────────────────────────────────────── */
+    function renderDuration() {
+      const traces = storeFilter.map(sid => {
+        const vals = durData
+          .filter(r => r.store_id == sid && r.duration_days >= 0 && r.duration_days <= 20)
+          .map(r => +r.duration_days);
+        return {
+          x: vals, name: `Store ${sid}`, type: 'histogram', nbinsx: 10,
+          marker: { color: STORE_COLOR[sid], opacity: 0.7, line: { width: 0.5, color: 'rgba(0,0,0,0.3)' } },
+        };
+      });
+
+      const allVals = durData.filter(r => r.duration_days != null).map(r => +r.duration_days);
+      const med = allVals.length
+        ? allVals.slice().sort((a, b) => a - b)[Math.floor(allVals.length / 2)]
+        : 0;
+
+      const layout = {
+        ...BASE_LAYOUT,
+        height: cssH('--chart-h-sm'),
+        barmode: 'group',
+        bargap: 0.15,
+        bargroupgap: 0.1,
+        shapes: [
+          { type: 'line', x0: 3, x1: 3, y0: 0, y1: 1, yref: 'paper', line: { color: '#3a9e8f', width: 1.5, dash: 'dash' } },
+          { type: 'line', x0: 7, x1: 7, y0: 0, y1: 1, yref: 'paper', line: { color: '#b05a6a', width: 1.5, dash: 'dash' } },
+        ],
+        annotations: [
+          { x: 3, y: 1, yref: 'paper', text: 'Ideal return (3d)', showarrow: false, font: { color: '#3a9e8f', size: 10 }, xanchor: 'left', yanchor: 'bottom' },
+          { x: 7, y: 1, yref: 'paper', text: 'Late threshold (7d)', showarrow: false, font: { color: '#b05a6a', size: 10 }, xanchor: 'left', yanchor: 'bottom' },
+        ],
+        xaxis: { ...BASE_LAYOUT.xaxis, title: { text: 'Days held', font: { size: 12, color: '#8b91a8' } } },
+        yaxis: { ...BASE_LAYOUT.yaxis, title: { text: 'Number of rentals', font: { size: 12, color: '#8b91a8' } } },
+      };
+
+      Plotly.react('chart-duration', traces, layout, CFG);
+      document.getElementById('sum-duration').innerHTML =
+        `<span class="label">What this shows</span>Most rentals are returned within <b>3–5 days</b>. The median across both stores is <b>${med.toFixed(1)} days</b>. A tall bar past 7 days means customers keep films too long — locking inventory and reducing re-rental frequency.`;
+    }
+
+    /* ── Category Donut ─────────────────────────────────────────────────── */
+    function renderCatDonut() {
+      const agg = {};
+      catData.forEach(r => { agg[r.category] = (agg[r.category] || 0) + +r.total_revenue; });
+      const sorted = Object.entries(agg).sort((a, b) => b[1] - a[1]).slice(0, 8);
+      const labels = sorted.map(e => e[0]);
+      const values = sorted.map(e => e[1]);
+      const total = values.reduce((s, v) => s + v, 0);
+      const colors = ['#5b7ec5', '#3a9e8f', '#c89a3a', '#b05a6a', '#4a9668', '#7c86a2', '#4a6fa5', '#2d7a5e'];
+
+      Plotly.react('chart-catdonut', [{
+        type: 'pie', labels, values, hole: 0.58,
+        marker: { colors, line: { color: '#0e1117', width: 2 } },
+        textinfo: 'label+percent',
+        textfont: { size: 11, color: '#c8ccda' },
+        hovertemplate: '%{label}<br><b>$%{value:,.0f}</b> · %{percent}<extra></extra>',
+      }], {
+        ...BASE_LAYOUT,
+        height: cssH('--chart-h-sm'),
+        showlegend: true,
+        title: { text: 'Revenue Share by Category', font: { family: 'Space Grotesk,sans-serif', size: 13, color: '#c8ccda' } },
+        legend: { orientation: 'v', x: 1.02, y: 0.5, font: { size: 11 }, bgcolor: 'rgba(0,0,0,0)' },
+        annotations: [{
+          text: `<b>${fmt(total)}</b>`,
+          x: 0.5, y: 0.5,
+          font: { family: 'Space Grotesk', size: 13, color: '#e8eaf0' },
+          showarrow: false,
+        }],
+        margin: { l: 8, r: 8, t: 48, b: 8 },
+      }, CFG);
+
+      if (sorted.length) {
+        const top = sorted[0];
+        const pct = (top[1] / total * 100).toFixed(1);
+        document.getElementById('sum-catdonut').innerHTML =
+          `<span class="label">What this shows</span><b>${top[0]}</b> is the top-earning category at <b>${pct}%</b> of total revenue. Categories with a large share but high average return duration are candidates for inventory expansion.`;
+      }
+    }
+
+    /* ── Top 10 Films ───────────────────────────────────────────────────── */
+    function renderTopFilms() {
+      const agg = {};
+      filmData.forEach(r => {
+        if (!agg[r.title]) agg[r.title] = { revenue: 0, rentals: 0 };
+        agg[r.title].revenue += +r.revenue;
+        agg[r.title].rentals += +r.rentals;
+      });
+      const top10 = Object.entries(agg).sort((a, b) => a[1].revenue - b[1].revenue).slice(-10);
+      const titles = top10.map(e => e[0]).reverse();
+      const revenues = top10.map(e => e[1].revenue).reverse();
+
+      Plotly.react('chart-topfilms', [{
+        x: revenues, y: titles, type: 'bar', orientation: 'h',
+        marker: {
+          color: revenues,
+          colorscale: [[0, '#1a2540'], [0.5, '#5b7ec5'], [1, '#a8bce8']],
+          showscale: true,
+          colorbar: {
+            title: { text: 'Revenue ($)', font: { color: '#4a5270', size: 11 } },
+            tickfont: { color: '#4a5270', size: 10 },
+            tickprefix: '$',
+            thickness: 12,
+          },
+        },
+        text: revenues.map(v => `  ${fmt(v)}`),
+        textposition: 'outside',
+        textfont: { size: 11, color: '#8b91a8' },
+        hovertemplate: '%{y}<br>Revenue: <b>$%{x:,.0f}</b><extra></extra>',
+      }], {
+        ...BASE_LAYOUT,
+        height: cssH('--chart-h-md'),
+        showlegend: false,
+        title: { text: 'Top 10 Films by Total Revenue', font: { family: 'Space Grotesk,sans-serif', size: 13, color: '#c8ccda' } },
+        margin: { l: 180, r: 80, t: 48, b: 40 },   /* wider left for long film titles */
+        xaxis: { ...BASE_LAYOUT.xaxis, tickprefix: '$', tickformat: ',.0f' },
+        yaxis: { ...BASE_LAYOUT.yaxis, autorange: 'reversed' },
+      }, CFG);
+    }
+
+    /* ── Pricing Scatter ────────────────────────────────────────────────── */
+    function renderScatter() {
+      const filtered = durData.filter(r =>
+        r.duration_days > 0 && r.duration_days <= 15 && r.rental_rate != null
+      );
+      if (!filtered.length) return;
+
+      const rates = filtered.map(r => +r.rental_rate);
+      const durs = filtered.map(r => +r.duration_days);
+      const medRate = median(rates);
+      const medDur = median(durs);
+
+      const quadrantOf = (rate, dur) => {
+        if (rate >= medRate && dur <= medDur) return 'Premium Fast';
+        if (rate >= medRate && dur > medDur) return 'Premium Slow';
+        if (rate < medRate && dur <= medDur) return 'Budget Fast';
+        return 'Budget Slow';
+      };
+
+      const byQuad = {};
+      const sample = filtered.length > 2000 ? shuffled(filtered).slice(0, 2000) : filtered;
+      sample.forEach(r => {
+        const q = quadrantOf(+r.rental_rate, +r.duration_days);
+        if (!byQuad[q]) byQuad[q] = { x: [], y: [], text: [] };
+        byQuad[q].x.push(+r.rental_rate);
+        byQuad[q].y.push(+r.duration_days);
+        byQuad[q].text.push(`${r.title} (${r.category})`);
+      });
+
+      const traces = Object.entries(byQuad).map(([q, pts]) => ({
+        x: pts.x, y: pts.y, text: pts.text,
+        name: q, type: 'scatter', mode: 'markers',
+        marker: { color: Q_COLORS[q] || '#7c86a2', size: 7, opacity: 0.75 },
+        hovertemplate: '%{text}<br>Rate: <b>$%{x:.2f}</b>  Hold: <b>%{y:.1f}d</b><extra>' + q + '</extra>',
+      }));
+
+      /* quadrant revenue sums */
+      const quadSums = {};
+      ['Premium Fast', 'Premium Slow', 'Budget Fast', 'Budget Slow'].forEach(q => {
+        const rows = filtered.filter(r => quadrantOf(+r.rental_rate, +r.duration_days) === q);
+        quadSums[q] = {
+          count: rows.length,
+          revenue: rows.reduce((s, r) => s + (+r.amount || 0), 0),
+          avgRate: rows.length ? rows.reduce((s, r) => s + (+r.rental_rate), 0) / rows.length : 0,
+          avgDur: rows.length ? rows.reduce((s, r) => s + (+r.duration_days), 0) / rows.length : 0,
+        };
+      });
+
+      const maxR = Math.max(...rates);
+      const maxD = Math.max(...durs);
+
+      Plotly.react('chart-scatter', traces, {
+        ...BASE_LAYOUT,
+        height: cssH('--chart-h-lg'),
+        title: { text: 'Rental Rate vs Days Held — Pricing Quadrant', font: { family: 'Space Grotesk,sans-serif', size: 14, color: '#c8ccda' } },
+        margin: { l: 56, r: 24, t: 56, b: 56 },
+        xaxis: { ...BASE_LAYOUT.xaxis, title: { text: 'Rental Rate ($)', font: { size: 12, color: '#8b91a8' } } },
+        yaxis: { ...BASE_LAYOUT.yaxis, title: { text: 'Days Held', font: { size: 12, color: '#8b91a8' } } },
+        legend: { ...BASE_LAYOUT.legend, orientation: 'h', y: -0.14 },
+        shapes: [
+          { type: 'line', x0: medRate, x1: medRate, y0: 0, y1: 1, yref: 'paper', line: { color: '#2a3550', width: 1.5, dash: 'dot' } },
+          { type: 'line', x0: 0, x1: 1, xref: 'paper', y0: medDur, y1: medDur, line: { color: '#2a3550', width: 1.5, dash: 'dot' } },
+        ],
+        annotations: [
+          {
+            x: maxR * 0.88, y: 1, yref: 'paper',
+            text: `<b>Best zone</b><br><span style="font-size:10px">Median rate $${medRate.toFixed(2)}</span>`,
+            showarrow: false, font: { color: '#3a9e8f', size: 11, family: 'Space Grotesk' },
+            bgcolor: '#13161f', bordercolor: '#3a9e8f', borderwidth: 1, borderpad: 4,
+          },
+          {
+            x: maxR * 0.88,
+            y: medDur * 0.5,
+            text: `<b>Dead zone</b><br><span style="font-size:10px">Median hold ${medDur.toFixed(1)}d</span>`,
+            showarrow: false, font: { color: '#b05a6a', size: 11, family: 'Space Grotesk' },
+            bgcolor: '#13161f', bordercolor: '#b05a6a', borderwidth: 1, borderpad: 4,
+          },
+        ],
+      }, CFG);
+
+      document.getElementById('sum-scatter').innerHTML =
+        `<span class="label">Watch Out</span>Each dot is one rental transaction. The chart is divided into 4 zones by median price and median hold time. <b style="color:#3a9e8f">Premium Fast</b> = best zone; <b style="color:#b05a6a">Budget Slow</b> = dead zone — these films earn little and block inventory. Films in the dead zone are candidates for a price increase.`;
+
+      /* Quadrant bar */
+      const qNames = Object.keys(quadSums);
+      const qRevs = qNames.map(q => quadSums[q].revenue);
+      const qColors = qNames.map(q => Q_COLORS[q] || '#7c86a2');
+
+      Plotly.react('chart-quadbar', [{
+        x: qNames, y: qRevs, type: 'bar',
+        marker: { color: qColors, line: { width: 0 } },
+        text: qRevs.map(v => fmt(v)),
+        textposition: 'outside',
+        cliponaxis: false,
+        textfont: { size: 12, color: '#8b91a8' },
+        hovertemplate: '%{x}<br>Revenue: <b>$%{y:,.0f}</b><extra></extra>',
+      }], {
+        ...BASE_LAYOUT,
+        height: cssH('--chart-h-xs'),
+        showlegend: false,
+        title: { text: 'Revenue by Pricing Segment', font: { family: 'Space Grotesk,sans-serif', size: 13, color: '#c8ccda' } },
+        margin: { l: 56, r: 24, t: 48, b: 48 },
+        yaxis: { ...BASE_LAYOUT.yaxis, tickprefix: '$', tickformat: ',.0f', range: [0, Math.max(...qRevs) * 1.15] },
+      }, CFG);
+
+      /* Segment table */
+      const sortedQ = qNames.slice().sort((a, b) => quadSums[b].revenue - quadSums[a].revenue);
+      let html = '';
+      sortedQ.forEach(q => {
+        const qs = quadSums[q];
+        const clr = Q_COLORS[q] || '#7c86a2';
+        html += `<div class="seg-card" style="border-left-color:${clr}">
+          <div class="seg-name" style="color:${clr}">${q}</div>
+          <div class="seg-val">${fmt(qs.revenue)}</div>
+          <div class="seg-sub">${qs.count.toLocaleString()} rentals &nbsp;·&nbsp; avg $${qs.avgRate.toFixed(2)} &nbsp;·&nbsp; ${qs.avgDur.toFixed(1)}d avg</div>
+        </div>`;
+      });
+      document.getElementById('seg-table').innerHTML = html;
+    }
+
+    /* ── ML ─────────────────────────────────────────────────────────────── */
+    function toggleML() {
+      const sec = document.getElementById('ml-section');
+      const chevron = document.getElementById('ml-chevron');
+      const open = sec.style.display === 'block';
+      sec.style.display = open ? 'none' : 'block';
+      chevron.className = open ? 'bi bi-chevron-down' : 'bi bi-chevron-up';
+    }
+
+    function populateCatDropdown(cats) {
+      document.getElementById('ml-cat').innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join('');
+    }
+
+    function updateRateLabel(val) {
+      document.getElementById('ml-rate-val').textContent = parseFloat(val).toFixed(2);
+    }
+
+    async function runPredict() {
+      const store = +document.getElementById('ml-store').value;
+      const category = document.getElementById('ml-cat').value;
+      const rate = +document.getElementById('ml-rate').value;
+      document.getElementById('ml-pred-val').textContent = '…';
+      document.getElementById('ml-pred-sub').textContent = 'Predicting…';
+      try {
+        const res = await fetch(`${API}/api/film/predict`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rental_rate: rate, category, store_id: store }),
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        document.getElementById('ml-result').querySelector('.pred-label').textContent = `PREDICTED VELOCITY (STORE ${store})`;
+        document.getElementById('ml-pred-val').textContent = `${data.predicted_days} days`;
+        document.getElementById('ml-pred-sub').textContent = `Estimated return time for ${category} at Store ${store}`;
+      } catch (e) {
+        document.getElementById('ml-pred-val').textContent = 'Error';
+        document.getElementById('ml-pred-sub').textContent = e.message || 'Could not connect to model. Run train_model.py first.';
+      }
+    }
+
+    /* ── Filters ─────────────────────────────────────────────────────────── */
+    document.querySelectorAll('input[type=checkbox]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        storeFilter = [...document.querySelectorAll('input[type=checkbox]:checked')].map(c => +c.value);
+        if (!storeFilter.length) storeFilter = [1, 2];
+        loadAll();
+      });
+    });
+
+    /* ── Utils ───────────────────────────────────────────────────────────── */
+    function median(arr) {
+      const s = arr.slice().sort((a, b) => a - b);
+      const m = Math.floor(s.length / 2);
+      return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+    }
+    function shuffled(arr) { return arr.slice().sort(() => Math.random() - 0.5); }
+
+    /* ── Boot ────────────────────────────────────────────────────────────── */
+    loadAll();
+  </script>
+<!-- ── DVD-AI Chatbot Widget ── -->
+<script src="chatbot_widget.js"></script>
+</body>
+</html>

@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DVD-AI Chatbot</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        /* ═══════════════════════════════════════════════════════
+           CHATBOT COMPONENT — standalone, overlays any page
+           ═══════════════════════════════════════════════════════ */
+
+        /* ══ TOGGLE BUTTON ══ */
+        #chatToggle {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 9999;
+            cursor: pointer;
+            background: linear-gradient(135deg, #5b7ec5, #3a9e8f);
+            width: 62px;
+            height: 62px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 24px rgba(91, 126, 197, 0.5);
+            transition: transform 0.2s, box-shadow 0.2s;
+            animation: pulseGlow 3s ease-in-out infinite;
+            border: none;
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 4px 24px rgba(91, 126, 197, 0.5); }
+            50%       { box-shadow: 0 4px 40px rgba(58, 158, 143, 0.7); }
+        }
+
+        #chatToggle:hover {
+            transform: scale(1.1);
+        }
+
+        #chatToggle i {
+            color: white;
+            font-size: 1.8rem;
+        }
+
+        /* ══ CHAT WINDOW ══ */
+        #chatWindow {
+            display: none;
+            position: fixed;
+            bottom: 96px;
+            right: 24px;
+            width: 420px;
+            height: 600px;
+            background: var(--chat-bg, #13161f);
+            border: 1px solid var(--chat-border, #1e2535);
+            border-radius: 20px;
+            flex-direction: column;
+            z-index: 9999;
+            box-shadow: 0 16px 64px rgba(0, 0, 0, 0.75);
+            overflow: hidden;
+            animation: slideUp 0.24s cubic-bezier(.16,1,.3,1);
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px) scale(0.96); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* ══ HEADER ══ */
+        .chat-header {
+            padding: 13px 16px;
+            background: var(--chat-header-bg, linear-gradient(135deg, #1a1f2e 0%, #1c2438 100%));
+            border-bottom: 1px solid var(--chat-border, #1e2535);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .chat-header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chat-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #5b7ec5, #3a9e8f);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            color: white;
+            flex-shrink: 0;
+            box-shadow: 0 2px 10px rgba(91,126,197,0.4);
+        }
+
+        .chat-header-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--chat-txt, #e8eaf0);
+        }
+
+        .chat-header-sub {
+            font-size: 0.69rem;
+            color: #5b7ec5;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .online-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #22c55e;
+            display: inline-block;
+            animation: blink 2s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.4; }
+        }
+
+        .chat-header-actions {
+            display: flex;
+            gap: 2px;
+        }
+
+        .chat-header-btn {
+            background: none;
+            border: none;
+            color: var(--chat-txt3, #5a6070);
+            cursor: pointer;
+            padding: 5px 7px;
+            border-radius: 7px;
+            font-size: 0.88rem;
+            transition: color 0.2s, background 0.2s;
+        }
+
+        .chat-header-btn:hover {
+            color: var(--chat-txt, #a8b4cf);
+            background: rgba(255, 255, 255, 0.07);
+        }
+
+        /* ══ CONTEXT BANNER ══ */
+        #chatContextBanner {
+            padding: 5px 14px;
+            background: rgba(91, 126, 197, 0.07);
+            border-bottom: 1px solid rgba(91, 126, 197, 0.13);
+            font-size: 0.71rem;
+            color: #7a96cc;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        /* ══ MESSAGES ══ */
+        #chatMessages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 14px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            scroll-behavior: smooth;
+        }
+
+        #chatMessages::-webkit-scrollbar { width: 3px; }
+        #chatMessages::-webkit-scrollbar-track { background: transparent; }
+        #chatMessages::-webkit-scrollbar-thumb { background: #2a3040; border-radius: 4px; }
+
+        .chat-msg {
+            padding: 9px 13px;
+            border-radius: 14px;
+            font-size: 0.83rem;
+            max-width: 92%;
+            word-wrap: break-word;
+            line-height: 1.55;
+            white-space: pre-wrap;
+            animation: msgIn 0.18s ease-out;
+        }
+
+        @keyframes msgIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .chat-msg.ai {
+            background: var(--chat-msg-ai-bg, #1a1f2e);
+            color: var(--chat-txt, #d4d8e2);
+            align-self: flex-start;
+            border: 1px solid var(--chat-msg-ai-border, #252e44);
+            border-bottom-left-radius: 4px;
+        }
+
+        .chat-msg.user {
+            background: linear-gradient(135deg, #3d5897, #5b7ec5);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        .chat-msg.system-notice {
+            background: rgba(58, 158, 143, 0.09);
+            border: 1px solid rgba(58, 158, 143, 0.2);
+            color: #5bb8a8;
+            align-self: center;
+            font-size: 0.72rem;
+            border-radius: 20px;
+            padding: 4px 14px;
+            max-width: 96%;
+            text-align: center;
+        }
+
+        .chat-msg.ai strong { color: #a8c4f0; }
+        .chat-msg.ai em { color: #8b91a8; font-style: italic; }
+        .chat-msg.ai code {
+            background: rgba(91,126,197,0.15);
+            border-radius: 4px;
+            padding: 1px 5px;
+            font-size: 0.8rem;
+            color: #7ab8e8;
+            font-family: monospace;
+        }
+
+        /* ══ TYPING INDICATOR ══ */
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            padding: 10px 14px;
+            background: var(--chat-msg-ai-bg, #1a1f2e);
+            border: 1px solid var(--chat-msg-ai-border, #252e44);
+            border-radius: 14px;
+            border-bottom-left-radius: 4px;
+            align-self: flex-start;
+            width: fit-content;
+        }
+
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #5b7ec5;
+            animation: typingBounce 1.2s infinite;
+        }
+
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typingBounce {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30%            { transform: translateY(-5px); opacity: 1; }
+        }
+
+        /* ══ SMART PROMPT SUGGESTIONS ══ */
+        #promptSuggestions {
+            padding: 7px 10px 0;
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+            min-height: 0;
+        }
+
+        .prompt-chip {
+            background: rgba(91, 126, 197, 0.1);
+            border: 1px solid rgba(91, 126, 197, 0.25);
+            border-radius: 20px;
+            color: #8ba8d4;
+            font-size: 0.7rem;
+            padding: 4px 11px;
+            cursor: pointer;
+            transition: all 0.18s;
+            white-space: nowrap;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .prompt-chip:hover {
+            border-color: #5b7ec5;
+            color: #b8ccf0;
+            background: rgba(91, 126, 197, 0.22);
+            transform: translateY(-1px);
+        }
+
+        /* ══ QUICK ACTIONS ══ */
+        #quickActions {
+            padding: 5px 10px 7px;
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+            border-top: 1px solid var(--chat-border, #1e2535);
+            flex-shrink: 0;
+        }
+
+        .quick-btn {
+            background: var(--chat-msg-ai-bg, #1a1f2e);
+            border: 1px solid var(--chat-border2, #2a3040);
+            border-radius: 20px;
+            color: #8b91a8;
+            font-size: 0.7rem;
+            padding: 4px 10px;
+            cursor: pointer;
+            transition: all 0.18s;
+            white-space: nowrap;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .quick-btn:hover {
+            border-color: #5b7ec5;
+            color: #a8b4cf;
+            background: rgba(91, 126, 197, 0.1);
+        }
+
+        /* ══ INPUT AREA ══ */
+        .chat-input-area {
+            padding: 10px 12px;
+            border-top: 1px solid var(--chat-border, #1e2535);
+            background: var(--chat-input-area-bg, #161b27);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        #chatInput {
+            flex: 1;
+            background: var(--chat-input-bg, #0e1117);
+            border: 1px solid var(--chat-border2, #2a3040);
+            border-radius: 10px;
+            color: var(--chat-txt, #d4d8e2);
+            font-size: 0.84rem;
+            padding: 8px 12px;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            font-family: 'Inter', sans-serif;
+            resize: none;
+            height: 38px;
+            max-height: 90px;
+        }
+
+        #chatInput:focus {
+            border-color: #5b7ec5;
+            box-shadow: 0 0 0 2px rgba(91,126,197,0.12);
+        }
+
+        #chatInput::placeholder { color: #3a4260; }
+
+        #chatSend {
+            background: linear-gradient(135deg, #4a6db8, #5b7ec5);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            padding: 8px 14px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: opacity 0.18s, transform 0.1s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        #chatSend:hover { opacity: 0.88; }
+        #chatSend:active { transform: scale(0.95); }
+        #chatSend:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* ══ UNDO TOAST ══ */
+        #undoToast {
+            position: fixed;
+            bottom: 106px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: #1a2a40;
+            border: 1px solid #3a5080;
+            color: #a8c4f0;
+            padding: 8px 18px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            z-index: 99999;
+            opacity: 0;
+            transition: opacity 0.25s, transform 0.25s;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'Inter', sans-serif;
+        }
+
+        #undoToast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+            pointer-events: auto;
+        }
+
+        #undoToast .undo-action-btn {
+            background: #5b7ec5;
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-size: 0.75rem;
+            padding: 2px 10px;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* ══ LIGHT MODE OVERRIDES ══ */
+        body.light-chat #chatWindow {
+            --chat-bg: #ffffff;
+            --chat-border: #dde1ec;
+            --chat-border2: #c8cedd;
+            --chat-txt: #1a1e2e;
+            --chat-txt3: #8890a8;
+            --chat-msg-ai-bg: #f0f2f8;
+            --chat-msg-ai-border: #d8dcee;
+            --chat-header-bg: linear-gradient(135deg, #edf0fa 0%, #e8edf8 100%);
+            --chat-input-area-bg: #f5f7fc;
+            --chat-input-bg: #ffffff;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ══ TOGGLE BUTTON ══ -->
+    <button id="chatToggle" title="DVD-AI Assistant" aria-label="Buka chat">
+        <i class="bi bi-robot"></i>
+    </button>
+
+    <!-- ══ CHAT WINDOW ══ -->
+    <div id="chatWindow">
+
+        <!-- Header -->
+        <div class="chat-header">
+            <div class="chat-header-left">
+                <div class="chat-avatar"><i class="bi bi-robot"></i></div>
+                <div>
+                    <div class="chat-header-title">DVD-AI</div>
+                    <div class="chat-header-sub">
+                        <span class="online-dot"></span> Online · Revenue Pulse
+                    </div>
+                </div>
+            </div>
+            <div class="chat-header-actions">
+                <button class="chat-header-btn" id="themeModeBtn" title="Toggle dark/light mode">
+                    <i class="bi bi-moon-stars-fill"></i>
+                </button>
+                <button class="chat-header-btn" id="btnClearChat" title="Hapus riwayat chat">
+                    <i class="bi bi-trash3"></i>
+                </button>
+                <button class="chat-header-btn" id="btnCloseChat" title="Tutup">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Context Banner -->
+        <div id="chatContextBanner">
+            <i class="bi bi-geo-alt-fill"></i>
+            <span id="bannerText">Detecting page…</span>
+        </div>
+
+        <!-- Messages -->
+        <div id="chatMessages"></div>
+
+        <!-- Smart Prompt Suggestions (contextual, updates per AI reply) -->
+        <div id="promptSuggestions"></div>
+
+        <!-- Quick Action Chips (static, always visible) -->
+        <div id="quickActions">
+            <button class="quick-btn" onclick="quickSend('Current revenue summary')">📊 Revenue</button>
+            <button class="quick-btn" onclick="quickSend('Switch monthly chart to bar chart')">📈 Bar Chart</button>
+            <button class="quick-btn" onclick="quickSend('Revenue trend analysis')">📉 Trends</button>
+            <button class="quick-btn" onclick="quickSend('Change theme color to teal')">🎨 Theme</button>
+            <button class="quick-btn" onclick="quickSend('Reset all colors to default')">🔄 Reset</button>  
+        </div>
+
+        <!-- Input -->
+        <div class="chat-input-area">
+            <textarea id="chatInput" placeholder="Ask about data, charts, or request a layout change…" rows="1" autocomplete="off"></textarea>
+            <button id="chatSend"><i class="bi bi-send-fill"></i></button>
+        </div>
+    </div>
+
+    <!-- Undo Toast -->
+    <div id="undoToast">
+        <i class="bi bi-arrow-counterclockwise"></i>
+        <span id="undoMsg">The changes have been implemented</span>
+        <button class="undo-action-btn" onclick="executeUndo()">↩ Undo</button>
+   </div>
+ 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+    // ═══════════════════════════════════════════════════════
+    //  CONFIG & CONSTANTS
+    // ═══════════════════════════════════════════════════════
+
+    const STORAGE_KEY  = 'dvd_ai_chat_history_v3';   // sessionStorage key
+    const THEME_KEY    = 'dvd_ai_theme_v2';            // sessionStorage key
+    const API_ENDPOINT = '/api/chat';                  // Flask backend
+
+    // Default chart type per chart-id (used for reset & undo)
+    const DEFAULT_CHART_TYPES = {
+        'chart-monthly': 'scatter', 'chart-growth': 'bar', 'chart-weekday': 'bar',
+        'chart-donut': 'pie', 'chart-transactions': 'bar', 'chart-hist': 'scatter',
+        'chart-forecast': 'scatter', 'chart-staff': 'bar', 'chart-duration': 'bar',
+        'chart-catdonut': 'pie', 'chart-topfilms': 'bar', 'chart-scatter': 'scatter',
+        'chart-quadbar': 'bar', 'chart-leakbar': 'bar', 'chart-storeleak': 'bar',
+        'chart-catleak': 'bar',
+    };
+
+    // CSS variables — dark theme defaults
+    const CSS_VARS_DARK = {
+        '--bg': '#0e1117', '--surface': '#13161f', '--card': '#161b27',
+        '--border': '#1e2535', '--border2': '#2a3040', '--txt': '#d4d8e2',
+        '--txt2': '#8b91a8', '--txt3': '#5a6070', '--txt4': '#4a5270',
+        '--blue': '#5b7ec5', '--teal': '#3a9e8f', '--slate': '#7c86a2',
+        '--amber': '#c89a3a', '--rose': '#b05a6a', '--green': '#4a9668',
+    };
+
+    // CSS variables — light theme defaults
+    const CSS_VARS_LIGHT = {
+        '--bg': '#f0f2f7', '--surface': '#ffffff', '--card': '#f8f9fc',
+        '--border': '#dde1ec', '--border2': '#c8cedd', '--txt': '#1a1e2e',
+        '--txt2': '#4a5070', '--txt3': '#8890a8', '--txt4': '#b0b8cc',
+        '--blue': '#3d60b0', '--teal': '#2a8070', '--slate': '#5c6480',
+        '--amber': '#a07a20', '--rose': '#903050', '--green': '#2a7848',
+    };
+
+    // Per-page contextual suggestion chips
+    const PAGE_PROMPTS = {
+        'overview.html': [
+            'What has been the revenue trend over the past 6 months?',
+            'Which day has the most transactions?',
+            'Compare Store 1 and Store 2',
+            'Change the monthly chart to a bar chart',
+            'Change the color scheme to orange',
+        ],
+        'revenue_stores.html': [
+            'Display the forecast for the next 3 months',
+            'Which staff member has the highest revenue?',
+            'Analyze historical revenue trends',
+            'Change the time range to the last 3 months',
+            'Change the color --blue to #e05060',
+        ],
+        'film_pricing.html': [
+            'Which movie is the most profitable?',
+            'Which category has the longest rental duration?',
+            'Predict the rental duration for the $3.99 Action movie',
+            'Change the top movies chart to a scatter plot',
+            'Switch to light mode',
+        ],
+        'leaks_action.html': [
+            'What is the total potential for late fees?',
+            'Which movie category is most frequently returned late?',
+            'Recommendations to reduce late returns',
+            'Compare late fees for Store 1 vs Store 2',
+            'Change the leak chart to a bar chart',
+        ],
+    };
+
+    // AI-response-based dynamic suggestions
+    const DYNAMIC_PROMPTS = {
+        revenue:    ['Breakdown of revenue by category?', 'Next months revenue forecast', 'Is Store 2`s revenue higher?'],
+        tren:       ['When was revenue at its lowest?', 'What factors influence the trend?', 'Show a graph of the last 6 months'],
+        chart:      ['Reset chart to default', 'Change chart color to red', 'Enlarge chart'],
+        warna:      ['Reset colors to default', 'Switch to dark mode', 'Change text color to white'],
+        late:       ['Strategies to reduce late returns?', 'Which movies are often late?', 'Compare across stores'],
+        staff:      ['SWhich staff member is the most productive?', 'Analyze employee performance', 'Compare transactions per staff member'],
+    };
+
+    // State
+    let undoStack    = [];
+    let isDarkMode   = true;
+    let isSending    = false;
+    let isFirstOpen  = true;
+    const chartDataBackup = {};  // stores original chart data before time-range filter
+
+    // ═══════════════════════════════════════════════════════
+    //  SESSION STORAGE — chat history survives tab navigation
+    // ═══════════════════════════════════════════════════════
+
+    function saveHistory(history) {
+        try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(history)); } catch(e) {}
+    }
+
+    function loadHistory() {
+        try {
+            const raw = sessionStorage.getItem(STORAGE_KEY);
+            return raw ? JSON.parse(raw) : [];
+        } catch(e) { return []; }
+    }
+
+    function clearHistory() {
+        try { sessionStorage.removeItem(STORAGE_KEY); } catch(e) {}
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  PAGE / TAB DETECTION
+    // ═══════════════════════════════════════════════════════
+
+    function detectCurrentPage() {
+        return window.location.pathname.split('/').pop() || 'overview.html';
+    }
+
+    function detectActiveTab() {
+        // Look for active tab panes within the current page
+        const active = document.querySelector('.tab-pane.active');
+        return active ? active.id : null;
+    }
+
+    function buildUIContext() {
+        const page = detectCurrentPage();
+        const activeTab = detectActiveTab();
+        const chartCount = document.querySelectorAll('[id^="chart-"]').length;
+        return {
+            page: window.location.pathname || '/',
+            pageName: page,
+            activeTab,
+            theme: isDarkMode ? 'dark' : 'light',
+            chartCount,
+            availableCharts: Array.from(document.querySelectorAll('[id^="chart-"]')).map(el => el.id),
+        };
+    }
+
+    function updateContextBanner() {
+        const page = detectCurrentPage();
+        const tab  = detectActiveTab();
+        const pageNames = {
+            'overview.html':       '📊 Overview',
+            'revenue_stores.html': '💰 Revenue & Stores',
+            'film_pricing.html':   '🎬 Film & Pricing',
+            'leaks_action.html':   '🚨 Leaks & Action',
+            'transformer_forecast_widget.html': 'Transformer Time Series'
+        };
+        let text = pageNames[page] || '📄 Dashboard';
+        if (tab) {
+            const tabEl = document.querySelector(`.tab-btn[data-target="${tab}"]`);
+            if (tabEl) text += ` › ${tabEl.textContent.trim()}`;
+        }
+        text += ` · ${isDarkMode ? '🌙 Dark' : '☀️ Light'}`;
+        document.getElementById('bannerText').textContent = text;
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  THEME — Dark / Light
+    // ═══════════════════════════════════════════════════════
+
+    function applyTheme(dark) {
+        const vars = dark ? CSS_VARS_DARK : CSS_VARS_LIGHT;
+        const root = document.documentElement;
+        Object.entries(vars).forEach(([k, v]) => root.style.setProperty(k, v));
+        isDarkMode = dark;
+
+        // Toggle body class for chatbot-internal light overrides
+        document.body.classList.toggle('light-chat', !dark);
+
+        const btn = document.getElementById('themeModeBtn');
+        if (btn) {
+            btn.innerHTML = dark
+                ? '<i class="bi bi-moon-stars-fill"></i>'
+                : '<i class="bi bi-sun-fill"></i>';
+        }
+
+        const win = document.getElementById('chatWindow');
+        if (win) win.style.background = dark ? '#13161f' : '#ffffff';
+
+        try { sessionStorage.setItem(THEME_KEY, dark ? 'dark' : 'light'); } catch(e) {}
+    }
+
+    function toggleTheme() {
+        pushUndo('toggle_theme', { wasDark: isDarkMode }, 'Theme mode has changed');
+        applyTheme(!isDarkMode);
+        addSystemNotice(isDarkMode ? '🌙 Dark mode is active' : '☀️ Light mode is active');
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  UNDO STACK
+    // ═══════════════════════════════════════════════════════
+
+    function pushUndo(type, snapshot, label) {
+        undoStack.push({ type, snapshot, label, ts: Date.now() });
+        if (undoStack.length > 20) undoStack.shift();
+        showUndoToast(label);
+    }
+
+    function showUndoToast(label) {
+        const toast = document.getElementById('undoToast');
+        document.getElementById('undoMsg').textContent = label;
+        toast.classList.add('show');
+        clearTimeout(window._undoTimer);
+        window._undoTimer = setTimeout(() => toast.classList.remove('show'), 4500);
+    }
+
+    function executeUndo() {
+        if (!undoStack.length) return;
+        const last = undoStack.pop();
+        document.getElementById('undoToast').classList.remove('show');
+
+        switch (last.type) {
+            case 'toggle_theme':
+                applyTheme(last.snapshot.wasDark);
+                addSystemNotice('↩️ The theme has been restored');
+                break;
+
+            case 'change_color':
+                Object.entries(last.snapshot).forEach(([k, v]) =>
+                    document.documentElement.style.setProperty(k, v));
+                addSystemNotice('↩️ The color have been restored');
+                break;
+
+            case 'change_chart_type':
+                if (last.snapshot.chartId) {
+                    const el = document.getElementById(last.snapshot.chartId);
+                    if (el) Plotly.restyle(last.snapshot.chartId, { type: last.snapshot.prevType });
+                    addSystemNotice('↩️ The chart type have been restored');
+                }
+                break;
+
+            case 'change_chart_colors':
+                if (last.snapshot.chartId && last.snapshot.prevColors) {
+                    Plotly.restyle(last.snapshot.chartId, { 'marker.color': last.snapshot.prevColors });
+                    addSystemNotice('↩️ The chart colors have been restored');
+                }
+                break;
+
+            case 'change_time_range':
+                if (last.snapshot.chartId && chartDataBackup[last.snapshot.chartId]) {
+                    const backup = chartDataBackup[last.snapshot.chartId];
+                    Plotly.react(last.snapshot.chartId, backup.data, backup.layout);
+                    addSystemNotice('↩️ The time range has been restored to its original setting');
+                }
+                break;
+
+            default:
+                addSystemNotice('↩️ The change has been canceled');
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  MESSAGE RENDERING
+    // ═══════════════════════════════════════════════════════
+
+    function renderMarkdown(text) {
+        return text
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.+?)\*/g, '<em>$1</em>')
+            .replace(/`(.+?)`/g, '<code>$1</code>')
+            .replace(/\n/g, '<br>');
+    }
+
+    function addMessage(text, role) {
+        const container = document.getElementById('chatMessages');
+        const div = document.createElement('div');
+        div.className = `chat-msg ${role}`;
+
+        if (role === 'ai') {
+            div.innerHTML = renderMarkdown(text);
+        } else {
+            div.textContent = text;
+        }
+
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+        return div;
+    }
+
+    function addSystemNotice(text) {
+        addMessage(text, 'system-notice');
+    }
+
+    function showTyping() {
+        const container = document.getElementById('chatMessages');
+        const div = document.createElement('div');
+        div.className = 'typing-indicator';
+        div.id = 'typingIndicator';
+        div.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function hideTyping() {
+        const el = document.getElementById('typingIndicator');
+        if (el) el.remove();
+    }
+
+    function renderPersistedMessages(history) {
+        const container = document.getElementById('chatMessages');
+        container.innerHTML = '';
+        history.forEach(msg => {
+            if (msg.role === 'user') addMessage(msg.content, 'user');
+            else if (msg.role === 'assistant') addMessage(msg.content, 'ai');
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  SMART PROMPT SUGGESTIONS
+    //  Updates dynamically based on AI reply keywords
+    // ═══════════════════════════════════════════════════════
+
+    function updatePromptSuggestions(aiReplyText) {
+        const container = document.getElementById('promptSuggestions');
+        container.innerHTML = '';
+
+        let chips = [];
+
+        // First: try to match keywords in AI reply for dynamic chips
+        if (aiReplyText) {
+            const r = aiReplyText.toLowerCase();
+            if (r.includes('revenue') || r.includes('pendapatan'))    chips.push(...DYNAMIC_PROMPTS.revenue);
+            if (r.includes('tren') || r.includes('trend'))             chips.push(...DYNAMIC_PROMPTS.tren);
+            if (r.includes('chart') || r.includes('grafik'))           chips.push(...DYNAMIC_PROMPTS.chart);
+            if (r.includes('warna') || r.includes('tema') || r.includes('color')) chips.push(...DYNAMIC_PROMPTS.warna);
+            if (r.includes('late') || r.includes('terlambat'))         chips.push(...DYNAMIC_PROMPTS.late);
+            if (r.includes('staff') || r.includes('karyawan'))         chips.push(...DYNAMIC_PROMPTS.staff);
+        }
+
+        // Fallback: page-based static suggestions
+        if (!chips.length) {
+            const page = detectCurrentPage();
+            chips = PAGE_PROMPTS[page] || PAGE_PROMPTS['overview.html'];
+        }
+
+        // Deduplicate & limit to 4
+        const seen = new Set();
+        const unique = chips.filter(c => {
+            if (seen.has(c)) return false;
+            seen.add(c);
+            return true;
+        }).slice(0, 4);
+
+        unique.forEach(text => {
+            const btn = document.createElement('button');
+            btn.className = 'prompt-chip';
+            btn.textContent = text;
+            btn.title = text;
+            btn.onclick = () => quickSend(text);
+            container.appendChild(btn);
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  EXECUTE UI ACTIONS  (all reversible via undo stack)
+    // ═══════════════════════════════════════════════════════
+
+    function executeAction(command) {
+        const root = document.documentElement;
+        console.log('[DVD-AI] action:', command);
+
+        switch (command.action) {
+
+            // ── Chart type change
+            case 'change_chart_type': {
+                const el = document.getElementById(command.target);
+                if (!el) {
+                    addMessage(`⚠️ Chart "${command.target}" not found on this page.`, 'ai');
+                    return;
+                }
+                const prevType = el._fullData?.[0]?.type || DEFAULT_CHART_TYPES[command.target] || 'bar';
+                pushUndo('change_chart_type', { chartId: command.target, prevType }, `The chart type has been changed → ${command.type}`);
+                Plotly.restyle(command.target, { type: command.type });
+                break;
+            }
+
+            // ── Reset single chart
+            case 'reset_chart': {
+                const el = document.getElementById(command.target);
+                if (!el) return;
+                const defType = DEFAULT_CHART_TYPES[command.target] || 'bar';
+                const prevType = el._fullData?.[0]?.type || defType;
+                pushUndo('change_chart_type', { chartId: command.target, prevType }, `The chart has been reset to its default settings`);
+                Plotly.restyle(command.target, { type: defType });
+                break;
+            }
+
+            // ── Reset all charts
+            case 'reset_all_charts': {
+                Object.entries(DEFAULT_CHART_TYPES).forEach(([id, type]) => {
+                    const el = document.getElementById(id);
+                    if (el) Plotly.restyle(id, { type });
+                });
+                addSystemNotice('✅ All charts have been reset to their default settings');
+                break;
+            }
+
+            // ── Change CSS color variable(s)
+            case 'change_color': {
+                const snapshot = {};
+                if (command.var && command.value) {
+                    snapshot[command.var] = getComputedStyle(root).getPropertyValue(command.var).trim();
+                    root.style.setProperty(command.var, command.value);
+                    pushUndo('change_color', snapshot, `The color of ${command.var} has been changed`);
+                } else if (Array.isArray(command.changes)) {
+                    command.changes.forEach(c => {
+                        snapshot[c.var] = getComputedStyle(root).getPropertyValue(c.var).trim();
+                        root.style.setProperty(c.var, c.value);
+                    });
+                    pushUndo('change_color', snapshot, 'The theme color has been changed');
+                }
+                break;
+            }
+
+            // ── Reset all colors to theme default
+            case 'reset_colors': {
+                const snapshot = {};
+                const vars = isDarkMode ? CSS_VARS_DARK : CSS_VARS_LIGHT;
+                Object.keys(vars).forEach(k => {
+                    snapshot[k] = getComputedStyle(root).getPropertyValue(k).trim();
+                });
+                pushUndo('change_color', snapshot, 'Colors reset to default');
+                Object.entries(vars).forEach(([k, v]) => root.style.setProperty(k, v));
+                addSystemNotice('🎨 All colors reset to default');
+                break;
+            }
+
+            // ── Dark/Light toggle
+            case 'toggle_dark_mode': {
+                const wantDark = command.target !== 'light';
+                if (wantDark !== isDarkMode) {
+                    pushUndo('toggle_theme', { wasDark: isDarkMode }, 'Theme mode changed');
+                    applyTheme(wantDark);
+                    addSystemNotice(wantDark ? '🌙 Dark mode is active' : '☀️ Light mode is active');
+                }
+                break;
+            }
+
+            // ── Sidebar show/hide
+            case 'toggle_sidebar': {
+                const sidebar = document.querySelector('.sidebar');
+                const main    = document.querySelector('.main, .main-content');
+                if (!sidebar) return;
+                if (command.mode === 'hide') {
+                    sidebar.style.display = 'none';
+                    if (main) { main.style.marginLeft = '0'; main.style.transition = 'margin-left 0.3s'; }
+                    addSystemNotice('👁 Sidebar is hidden');
+                } else {
+                    sidebar.style.display = '';
+                    if (main) main.style.marginLeft = '';
+                    addSystemNotice('👁 Sidebar is displayed');
+                }
+                break;
+            }
+
+            // ── Switch page tab
+            case 'switch_tab': {
+                const btn = document.querySelector(`.tab-btn[data-target="${command.tab}"]`);
+                if (btn) btn.click();
+                break;
+            }
+
+            // ── Change chart marker colors
+            case 'change_chart_colors': {
+                const el = document.getElementById(command.target);
+                if (!el) return;
+                const prevColors = el._fullData?.[0]?.marker?.color;
+                pushUndo('change_chart_colors', { chartId: command.target, prevColors }, 'The chart colors have been changed');
+                Plotly.restyle(command.target, { 'marker.color': command.color });
+                break;
+            }
+
+            // ── Filter chart to time range (without destroying original data)
+            case 'change_time_range': {
+                const el = document.getElementById(command.target);
+                if (!el || !el._fullData) {
+                    addMessage(`⚠️ Chart "${command.target}" is not yet listed or is not available on this page.`, 'ai');
+                    return;
+                }
+                // Backup original once
+                if (!chartDataBackup[command.target]) {
+                    chartDataBackup[command.target] = {
+                        data:   JSON.parse(JSON.stringify(el._fullData || [])),
+                        layout: JSON.parse(JSON.stringify(el._fullLayout || {})),
+                    };
+                }
+                pushUndo('change_time_range', { chartId: command.target }, `The time range for ${command.target} has been changed`);
+
+                const monthsBack = parseInt(command.months) || 3;
+                const cutoff = new Date();
+                cutoff.setMonth(cutoff.getMonth() - monthsBack);
+
+                const newData = el._fullData.map(trace => {
+                    if (!Array.isArray(trace.x)) return trace;
+                    const filtered = { x: [], y: [] };
+                    trace.x.forEach((x, i) => {
+                        const d = new Date(x);
+                        if (!isNaN(d) && d >= cutoff) {
+                            filtered.x.push(x);
+                            filtered.y.push(trace.y[i]);
+                        }
+                    });
+                    return { ...trace, x: filtered.x, y: filtered.y };
+                });
+
+                Plotly.react(command.target, newData, el._fullLayout || {});
+                addSystemNotice(`📅 The time range has been changed to the last ${monthsBack} months (the original data is saved and can be undone)`);
+                break;
+            }
+
+            // ── Resize chart
+            case 'resize_chart': {
+                const el = document.getElementById(command.target);
+                if (!el) return;
+                const update = {};
+                if (command.height) update.height = parseInt(command.height);
+                if (command.width)  update.width  = parseInt(command.width);
+                Plotly.relayout(command.target, update);
+                addSystemNotice(`📐 The size of the ${command.target} chart has been changed`);
+                break;
+            }
+
+            // ── Update chart style (bg, font, grid)
+            case 'update_chart_style': {
+                const el = document.getElementById(command.target);
+                if (!el) return;
+                const update = {};
+                if (command.bgcolor)   update['paper_bgcolor']   = command.bgcolor;
+                if (command.fontcolor) update['font.color']       = command.fontcolor;
+                if (command.gridcolor) {
+                    update['xaxis.gridcolor'] = command.gridcolor;
+                    update['yaxis.gridcolor'] = command.gridcolor;
+                }
+                Plotly.relayout(command.target, update);
+                addSystemNotice(`🎨 Style chart updated`);
+                break;
+            }
+
+            default:
+                console.warn('[DVD-AI] Unknown action:', command.action);
+        }
+
+        updateContextBanner();
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  SEND MESSAGE → Flask /api/chat (Groq backend)
+    // ═══════════════════════════════════════════════════════
+
+    async function sendMessage() {
+        if (isSending) return;
+        const input = document.getElementById('chatInput');
+        const text  = input.value.trim();
+        if (!text) return;
+
+        isSending = true;
+        document.getElementById('chatSend').disabled = true;
+        input.value = '';
+        input.style.height = '38px';
+
+        addMessage(text, 'user');
+
+        let chatHistory = loadHistory();
+        const uiContext = buildUIContext();
+        updateContextBanner();
+        showTyping();
+
+        try {
+            const res = await fetch(API_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt:     text,
+                    ui_context: uiContext,
+                    history:    chatHistory.slice(-20),
+                }),
+            });
+
+            hideTyping();
+
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            const msg  = data.response || '';
+
+            // Parse optional ||| command separator
+            let displayText = msg;
+            let command     = null;
+
+            if (msg.includes('|||')) {
+                const sepIdx = msg.lastIndexOf('|||');
+                displayText  = msg.slice(0, sepIdx).trim();
+                const jsonStr = msg.slice(sepIdx + 3).trim();
+                try { command = JSON.parse(jsonStr); }
+                catch(e) { console.warn('[DVD-AI] Failed to parse command:', jsonStr); }
+            }
+
+            if (displayText) addMessage(displayText, 'ai');
+            if (command)     executeAction(command);
+
+            // Dynamic suggestions based on AI reply
+            updatePromptSuggestions(displayText);
+
+            // Persist to sessionStorage
+            chatHistory.push({ role: 'user',      content: text });
+            chatHistory.push({ role: 'assistant', content: displayText || msg });
+            if (chatHistory.length > 40) chatHistory = chatHistory.slice(-40);
+            saveHistory(chatHistory);
+
+        } catch(err) {
+            hideTyping();
+            addMessage('❌ Failed to connect to the server. Make sure Flask (app.py) is running on port 5000.', 'ai');
+            console.error('[DVD-AI]', err);
+        } finally {
+            isSending = false;
+            document.getElementById('chatSend').disabled = false;
+            input.focus();
+        }
+    }
+
+    function quickSend(text) {
+        document.getElementById('chatInput').value = text;
+        sendMessage();
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  AUTO-RESIZE TEXTAREA
+    // ═══════════════════════════════════════════════════════
+
+    function autoResize(el) {
+        el.style.height = '38px';
+        el.style.height = Math.min(el.scrollHeight, 90) + 'px';
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  TAB CHANGE DETECTION — updates context banner & chips
+    // ═══════════════════════════════════════════════════════
+
+    function watchTabChanges() {
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                setTimeout(() => {
+                    updateContextBanner();
+                    const chatOpen = document.getElementById('chatWindow').style.display === 'flex';
+                    if (chatOpen) {
+                        updatePromptSuggestions(null);
+                        const activeTab  = detectActiveTab();
+                        const tabEl      = document.querySelector(`.tab-btn[data-target="${activeTab}"]`);
+                        if (tabEl) addSystemNotice(`📍 Tab "${tabEl.textContent.trim()}" aktif`);
+                    }
+                }, 120);
+            });
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  INIT
+    // ═══════════════════════════════════════════════════════
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const chatToggle = document.getElementById('chatToggle');
+        const chatWindow = document.getElementById('chatWindow');
+        const chatInput  = document.getElementById('chatInput');
+        const chatSend   = document.getElementById('chatSend');
+        const btnClose   = document.getElementById('btnCloseChat');
+        const btnClear   = document.getElementById('btnClearChat');
+        const themeBtn   = document.getElementById('themeModeBtn');
+
+        // Restore theme from session
+        const savedTheme = sessionStorage.getItem(THEME_KEY);
+        isDarkMode = savedTheme !== 'light';
+        applyTheme(isDarkMode);
+
+        // ── Toggle open/close
+        chatToggle.addEventListener('click', () => {
+            const isOpen = chatWindow.style.display === 'flex';
+            chatWindow.style.display = isOpen ? 'none' : 'flex';
+
+            if (!isOpen) {
+                updateContextBanner();
+                updatePromptSuggestions(null);
+
+                if (isFirstOpen) {
+                    const history = loadHistory();
+                    if (history.length > 0) {
+                        renderPersistedMessages(history);
+                        addSystemNotice('💬 Previous conversation restored - history is preserved when switching tabs!’');
+                    } else {
+                        const page = detectCurrentPage();
+                        const greetings = {
+                            'overview.html':       'Hello! Im **DVD-AI** 👋 Ready to help analyze your DVD store data. Ask me about revenue, trends, or have me change the chart view!',
+                            'revenue_stores.html': 'Hello! On the **Revenue & Stores** page, I can help analyze store performance, forecast revenue, and compare staff.',
+                            'film_pricing.html':   'Hello! On the **Film & Pricing** page, I can explain price distribution, top-selling movies, and rental duration predictions.',
+                            'leaks_action.html':   'Hello! On the **Leaks & Action** page, I can help identify potential late fee losses and recommend actions. Ready!',
+                        };
+                        addMessage(greetings[page] || greetings['overview.html'], 'ai');
+                    }
+                    isFirstOpen = false;
+                    watchTabChanges();
+                }
+
+                chatInput.focus();
+            }
+        });
+
+        // ── Close
+        btnClose.addEventListener('click', () => { chatWindow.style.display = 'none'; });
+
+        // ── Clear history
+        btnClear.addEventListener('click', () => {
+            if (confirm('Delete all chat history?')) {
+                clearHistory();
+                undoStack = [];
+                document.getElementById('chatMessages').innerHTML = '';
+                addMessage('Chat history has been deleted. Ready to help from the beginning! 😊', 'ai');
+                updatePromptSuggestions(null);
+            }
+        });
+
+        // ── Theme toggle
+        themeBtn.addEventListener('click', toggleTheme);
+
+        // ── Send
+        chatSend.addEventListener('click', sendMessage);
+        chatInput.addEventListener('keypress', e => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // ── Auto-resize textarea
+        chatInput.addEventListener('input', () => autoResize(chatInput));
+
+        updateContextBanner();
+        updatePromptSuggestions(null);
+    });
+    </script>
+</body>
+</html>
